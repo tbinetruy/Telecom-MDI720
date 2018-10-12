@@ -26,18 +26,6 @@ def plot_gnp_vs_invest(data):
     plt.title("GNP vs Invest")
     plt.show()
 
-def transverse(X):
-    # x_{i,j} = x_{j,i}
-    n = range(0, len(X))
-    p = range(0, len(X[0]))
-    X_t = [[0 for j in n] for i in p]
-    for i in n:
-        for j in p:
-            X_t[j][i] = X[i][j]
-
-    return X_t
-
-
 def lin_reg(X, Y):
     # theta_hat = (X'X)^-1 * X'Y = A^-1 * B
     r = range(0, len(X))
