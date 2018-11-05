@@ -1,7 +1,7 @@
 #+TITLE: Stats TP3
-#+PROPERTY: results output
-#+PROPERTY: exports both
-
+#+HTML_HEAD: <style>html { max-width: 50rem; margin: auto }</style>
+#+HTML_HEAD: <style>.figure img { width: 100% }</style>
+#+HTML_HEAD: <style>pre.example { background-color: aliceblue }</style>
 
 * Introduction
 
@@ -13,7 +13,7 @@
 #+RESULTS:
 : img
 
-#+BEGIN_SRC python :session default
+#+BEGIN_SRC python :exports both :session default
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -26,12 +26,11 @@ import random
 import seaborn as sns
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LinearRegression
-print("hello")
 #+END_SRC
 
 #+RESULTS:
 
-#+BEGIN_SRC python :session default
+#+BEGIN_SRC python :session default :exports both
 def import_data():
     df = pd.read_csv('data_dm3.csv', delimiter=",", header=None)
     return df
@@ -52,14 +51,14 @@ df.head()
 
 * Question 1
   
-#+BEGIN_SRC python :session default
+#+BEGIN_SRC python :session default :exports both
 df.shape[1]
 #+END_SRC
 
 #+RESULTS:
 : 211
 
-#+BEGIN_SRC python :session default
+#+BEGIN_SRC python :session default : exports both
 num_df_cols = df.shape[1] - 1
 dfX = df.drop(num_df_cols, axis=1)
 dfX.head()
@@ -75,7 +74,7 @@ dfX.head()
 : 
 : [5 rows x 210 columns]
 
-#+BEGIN_SRC python :session default
+#+BEGIN_SRC python :session default :exports both
 dfY = df[num_df_cols]
 dfY.head()
 #+END_SRC
@@ -88,7 +87,7 @@ dfY.head()
 : 4    135.0
 : Name: 210, dtype: float64
 
-#+BEGIN_SRC python :session default :results output
+#+BEGIN_SRC python :session default :results output :exports both
 print("Nombre de variable explicatives:", dfX.shape[1])
 print("Numbre d'observations", dfX.shape[0])
 #+END_SRC
@@ -101,7 +100,7 @@ print("Numbre d'observations", dfX.shape[0])
   
 Les variables explicatives sont-elles centrées ? Normalisées ? Qu’en est-il de la variable à expliquer ? Tracer un scatter plot de la base de données avec 4 covariables prises au hasard et la variable à expliquer (un scatterplot regroupe les graphes de chacune des variables en fonction de chacune des autres). Commenter les graphiques obtenus.
 
-#+BEGIN_SRC python :session default
+#+BEGIN_SRC python :session default :exports both
 dfX.mean(axis=0)
 #+END_SRC
 
@@ -171,7 +170,7 @@ dfX.mean(axis=0)
 Length: 210, dtype: float64
 #+end_example
 
-#+BEGIN_SRC python :session default
+#+BEGIN_SRC python :session default :exports both
 dfX.var(axis=0)
 #+END_SRC
 
@@ -241,14 +240,14 @@ dfX.var(axis=0)
 Length: 210, dtype: float64
 #+end_example
 
-#+BEGIN_SRC python :session default
+#+BEGIN_SRC python :session default :exports both
 dfY.mean(axis=0)
 #+END_SRC
 
 #+RESULTS:
 : 152.13348416289594
 
-#+BEGIN_SRC python :session default
+#+BEGIN_SRC python :session default :exports both
 dfY.var(axis=0)
 #+END_SRC
 
@@ -262,9 +261,11 @@ def rand():
 
 rand_cols = [rand() for i in range(4)]
 
+plt.figure(0)
 sns_plot = sns.pairplot(dfX[rand_cols])
 path2 = "./img/q2.png"
 sns_plot.savefig(path2)
+plt.close()
 path2
 #+END_SRC
 
@@ -293,6 +294,7 @@ path3 = "./img/q3.png"
 plt.figure(0)
 plt.scatter(range(len(s)), s)
 plt.savefig(path3)
+plt.close()
 
 X2 = X@u[:,0:60]
 X2.shape
@@ -302,3 +304,120 @@ path3
 
 #+RESULTS:
 [[file:./img/q3.png]]
+
+* Question 4
+
+Echantillon d’apprentissage et de test. Créer 2 échantillons : un pour apprendre le modèle, un pour tester le modèle. On mettra 20% de la base dans l’échantillon ’test’. Donner les tailles de chacun des 2 échantillons.
+
+#+BEGIN_SRC python :session default :exports both :results output
+X_test = X2[0:88,:]
+X_train = X2[87:-1,:]
+
+Y = np.matrix(dfY).T
+Y_test = Y[0:88]
+Y_train = Y[87:-1]
+
+print("X test shape:", X_test.shape)
+print("X train shape:", X_train.shape)
+print("Y test shape:", Y_test.shape)
+print("Y train shape:", Y_train.shape)
+#+END_SRC
+
+#+RESULTS:
+: X test shape: (88, 60)
+: X train shape: (354, 60)
+: Y test shape: (88, 1)
+: Y train shape: (354, 1)
+
+* Question 5
+
+Suivant les observations de la question (Q3), appliquer la méthode de "PCA before OLS" qui consiste à faire une ACP avant la régression. On tracera les valeurs des coefficients de régression calculés (sans l’intercept). Sur un autre graphique, faire de même avec la méthode des moindres carrées classique.
+
+#+BEGIN_SRC python :session default :exports both :results output
+pca = PCA()
+X_pca = pca.fit_transform(X_train)
+
+theta_hat_pca_before_ols = LinearRegression(fit_intercept=True).fit(X_pca,Y_train)
+print(theta_hat_pca_before_ols.coef_)
+#+END_SRC
+
+#+RESULTS:
+#+begin_example
+[[ 1.26364895e+01  3.18108225e+00  5.26963933e+00  8.05633136e+00
+  -7.90881197e-01 -6.36003104e-01 -2.84106765e+00 -5.96359867e-01
+  -6.49869641e-01 -1.12653247e-01  2.05005317e+00  3.97927997e+00
+   3.76613502e+00 -2.62445233e+00 -9.10733887e-01  2.76357173e-01
+  -3.02869564e+00  8.68427753e-01  3.24806208e+00 -2.90439251e+00
+   1.61888699e+00 -1.30124617e+00  9.96551849e-01  1.20663568e+00
+   3.71922962e+00  2.18895085e+00 -2.79072527e-01 -4.11746293e+00
+  -4.85899334e+00 -2.12382203e+00 -3.70217064e+00  3.89457583e+00
+  -1.62216394e-02  2.50868142e-01  9.28227173e-01 -2.52446966e+00
+   7.16144172e-01  1.37400778e+00  1.97283773e+00  3.26713777e+00
+   4.46212869e+00  2.39244875e-01  1.29044673e+00 -2.10821711e+00
+   5.12407575e+00  2.82660249e+00  3.95622150e-01 -4.32020189e+00
+   1.01873425e+01  1.89246651e+00  2.64723407e+00  1.10788712e+01
+   5.64834675e+00  2.67553057e+01  2.46994859e+00 -4.61194346e+00
+   5.59716496e+00 -1.73891098e+00  2.61007452e+00 -5.02746493e+01]]
+#+end_example
+
+#+BEGIN_SRC python :session default :exports both :results output
+theta_hat_ols = LinearRegression(fit_intercept=True).fit(X_train, Y_train)
+print(theta_hat_ols.coef_)
+#+END_SRC
+
+#+RESULTS:
+#+begin_example
+[[-1.51667749e+01 -1.01182490e+00 -3.45632561e-01 -5.15852648e+00
+   3.03062233e+00 -3.90311506e+00 -3.22055004e+00 -1.52690999e+00
+  -9.87227874e-04 -3.97440996e+00 -5.94668875e-01 -1.82192084e+00
+  -1.38467265e+00  1.10609902e+00 -8.90434839e-01  2.67250398e+00
+   1.90418388e+00 -2.98230234e+00  3.02719326e+00  9.81985206e-01
+   1.11715367e+00 -2.98165364e+00 -2.10125175e-01  1.09347995e+00
+   1.21441877e+00 -2.48086067e+00 -3.75683271e+00  1.65783367e+00
+  -1.88117865e-01 -1.36417171e-01 -2.84190241e+00 -1.90882866e+00
+  -5.13304075e-01  1.17744906e+00 -7.66186897e-01 -3.45132362e+00
+   1.30850227e+00  6.95863796e-01 -8.80289371e-01 -4.54251967e-01
+   4.01316077e+00 -2.73617480e+00  1.20430927e+00 -8.06324581e-01
+  -1.44501300e+00 -2.53189706e+00  1.24256613e-01 -2.62578800e+00
+   1.21649820e+00  5.13308425e+00  1.25623509e+01  1.24202418e+01
+  -3.92976692e+00  2.67126973e+01  8.92524327e-01  6.46338979e+00
+  -6.03774453e+00  2.22000733e+00 -4.03536252e+00 -5.00372683e+01]]
+#+end_example
+
+
+#+BEGIN_SRC python :session default :exports both :results file
+plt.figure(0)
+path4 = "./q5a.png"
+plt.scatter(range(theta_hat_ols.coef_.shape[1]), theta_hat_ols.coef_)
+plt.savefig(path4)
+plt.close()
+path4
+#+END_SRC
+
+#+RESULTS:
+[[file:./q5a.png]]
+
+#+BEGIN_SRC python :session default :exports both :results file
+plt.figure(0)
+path5 = "./q5b.png"
+plt.scatter(range(theta_hat_pca_before_ols.coef_.shape[1]), theta_hat_pca_before_ols.coef_)
+plt.savefig(path5)
+plt.close()
+path5
+#+END_SRC
+
+#+RESULTS:
+[[file:./q5b.png]]
+
+* Question 6
+
+Donner les valeurs des intercepts pour les 2 régressions précédentes. Donner la valeur moyenne de la variable Y (sur le train set). Les intercepts des 2 questions sont-ils égaux ? Commenter. Centrer et réduire les variables après ACP (de petite dimension). Faire une régression avec ces variables et vérifier que l’intercept est bien égal à la moyenne de Y sut le train.
+
+#+BEGIN_SRC python :session default :exports both :results output
+print("Intercept OLS:", theta_hat_ols.intercept_)
+print("Intercept PCA before OLS:", theta_hat_pca_before_ols.intercept_)
+#+END_SRC
+
+#+RESULTS:
+: Intercept OLS: [152.77106978]
+: Intercept PCA before OLS: [156.43785311]
