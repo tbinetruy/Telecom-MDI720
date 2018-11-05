@@ -1,0 +1,304 @@
+#+TITLE: Stats TP3
+#+PROPERTY: results output
+#+PROPERTY: exports both
+
+
+* Introduction
+
+#+begin_src bash
+  mkdir -p img
+  ls | grep img
+#+end_src
+
+#+RESULTS:
+: img
+
+#+BEGIN_SRC python :session default
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import math
+import scipy.stats
+from numpy.linalg import inv
+from scipy import stats
+import statsmodels.api as sm
+import random
+import seaborn as sns
+from sklearn.decomposition import PCA
+from sklearn.linear_model import LinearRegression
+print("hello")
+#+END_SRC
+
+#+RESULTS:
+
+#+BEGIN_SRC python :session default
+def import_data():
+    df = pd.read_csv('data_dm3.csv', delimiter=",", header=None)
+    return df
+
+df = import_data()
+df.head()
+#+END_SRC
+
+#+RESULTS:
+:         0         1         2         3         4         5    ...         205       206       207       208       209    210
+: 0 -1.298173 -0.162249  1.223379  1.355554  1.080171  0.634979  ...    0.279299 -1.416020 -2.332363  0.215096 -0.693319  151.0
+: 1  0.166951 -0.338060 -0.618867  0.759366  1.134281 -0.536844  ...    0.225958 -0.822288  0.382838 -0.718829 -0.188993   75.0
+: 2 -0.416177 -0.205659 -1.282226  1.675500  1.523746  0.192029  ...    0.139267 -1.901196  0.048210  0.220205  0.471588  141.0
+: 3  0.867184 -0.398667  0.093501  0.025971  1.852099  0.789774  ...    0.723819  1.316367  0.088218  0.619496  1.061662  206.0
+: 4  1.193282 -0.936980 -0.725039  0.766078  0.223489 -1.584622  ...    2.040010 -1.703110 -1.901502  1.778811 -0.489853  135.0
+: 
+: [5 rows x 211 columns]
+
+* Question 1
+  
+#+BEGIN_SRC python :session default
+df.shape[1]
+#+END_SRC
+
+#+RESULTS:
+: 211
+
+#+BEGIN_SRC python :session default
+num_df_cols = df.shape[1] - 1
+dfX = df.drop(num_df_cols, axis=1)
+dfX.head()
+#+END_SRC
+
+#+RESULTS:
+:         0         1         2         3         4         5      ...          204       205       206       207       208       209
+: 0 -1.298173 -0.162249  1.223379  1.355554  1.080171  0.634979    ...    -0.436399  0.279299 -1.416020 -2.332363  0.215096 -0.693319
+: 1  0.166951 -0.338060 -0.618867  0.759366  1.134281 -0.536844    ...     1.119430  0.225958 -0.822288  0.382838 -0.718829 -0.188993
+: 2 -0.416177 -0.205659 -1.282226  1.675500  1.523746  0.192029    ...    -2.579347  0.139267 -1.901196  0.048210  0.220205  0.471588
+: 3  0.867184 -0.398667  0.093501  0.025971  1.852099  0.789774    ...    -0.884172  0.723819  1.316367  0.088218  0.619496  1.061662
+: 4  1.193282 -0.936980 -0.725039  0.766078  0.223489 -1.584622    ...    -0.642504  2.040010 -1.703110 -1.901502  1.778811 -0.489853
+: 
+: [5 rows x 210 columns]
+
+#+BEGIN_SRC python :session default
+dfY = df[num_df_cols]
+dfY.head()
+#+END_SRC
+
+#+RESULTS:
+: 0    151.0
+: 1     75.0
+: 2    141.0
+: 3    206.0
+: 4    135.0
+: Name: 210, dtype: float64
+
+#+BEGIN_SRC python :session default :results output
+print("Nombre de variable explicatives:", dfX.shape[1])
+print("Numbre d'observations", dfX.shape[0])
+#+END_SRC
+
+#+RESULTS:
+: Nombre de variable explicatives: 210
+: Numbre d'observations 442
+
+* Question 2
+  
+Les variables explicatives sont-elles centrées ? Normalisées ? Qu’en est-il de la variable à expliquer ? Tracer un scatter plot de la base de données avec 4 covariables prises au hasard et la variable à expliquer (un scatterplot regroupe les graphes de chacune des variables en fonction de chacune des autres). Commenter les graphiques obtenus.
+
+#+BEGIN_SRC python :session default
+dfX.mean(axis=0)
+#+END_SRC
+
+#+RESULTS:
+#+begin_example
+0      7.535450e-19
+1     -1.507090e-17
+2      5.494599e-20
+3     -7.284269e-18
+4      8.288995e-18
+5     -2.712762e-17
+6      1.971776e-17
+7      8.540177e-18
+8      1.029845e-17
+9      4.018907e-18
+10    -1.444295e-17
+11     3.717489e-17
+12    -3.642134e-17
+13    -1.124038e-17
+14    -3.750456e-17
+15    -4.511851e-17
+16     2.461580e-17
+17     9.293722e-18
+18     2.662526e-17
+19    -5.601351e-17
+20    -3.067556e-17
+21    -4.521270e-18
+22     6.781905e-18
+23    -4.056584e-17
+24     1.004727e-18
+25    -2.813235e-17
+26    -3.540092e-17
+27    -5.953006e-17
+28    -4.533829e-17
+29     3.064416e-17
+           ...     
+180   -3.767725e-18
+181    3.843080e-17
+182    4.018907e-18
+183    6.380015e-17
+184    1.795949e-17
+185   -1.306145e-17
+186    1.550053e-17
+187    3.918434e-17
+188    1.871304e-17
+189    1.356381e-17
+190   -2.737880e-17
+191    2.210399e-17
+192   -3.843080e-17
+193    4.511851e-17
+194   -6.530724e-18
+195   -3.014180e-17
+196    3.014180e-17
+197   -2.888589e-17
+198    7.887105e-17
+199    3.918434e-17
+200    1.934099e-17
+201   -2.260635e-18
+202   -2.637408e-17
+203   -5.023634e-19
+204   -1.538488e-17
+205    5.525997e-18
+206    3.265362e-17
+207    1.507090e-17
+208   -4.034606e-18
+209    1.205672e-17
+Length: 210, dtype: float64
+#+end_example
+
+#+BEGIN_SRC python :session default
+dfX.var(axis=0)
+#+END_SRC
+
+#+RESULTS:
+#+begin_example
+0      1.002268
+1      1.002268
+2      1.002268
+3      1.002268
+4      1.002268
+5      1.002268
+6      1.002268
+7      1.002268
+8      1.002268
+9      1.002268
+10     1.002268
+11     1.002268
+12     1.002268
+13     1.002268
+14     1.002268
+15     1.002268
+16     1.002268
+17     1.002268
+18     1.002268
+19     1.002268
+20     1.002268
+21     1.002268
+22     1.002268
+23     1.002268
+24     1.002268
+25     1.002268
+26     1.002268
+27     1.002268
+28     1.002268
+29     1.002268
+         ...   
+180    1.002268
+181    1.002268
+182    1.002268
+183    1.002268
+184    1.002268
+185    1.002268
+186    1.002268
+187    1.002268
+188    1.002268
+189    1.002268
+190    1.002268
+191    1.002268
+192    1.002268
+193    1.002268
+194    1.002268
+195    1.002268
+196    1.002268
+197    1.002268
+198    1.002268
+199    1.002268
+200    1.002268
+201    1.002268
+202    1.002268
+203    1.002268
+204    1.002268
+205    1.002268
+206    1.002268
+207    1.002268
+208    1.002268
+209    1.002268
+Length: 210, dtype: float64
+#+end_example
+
+#+BEGIN_SRC python :session default
+dfY.mean(axis=0)
+#+END_SRC
+
+#+RESULTS:
+: 152.13348416289594
+
+#+BEGIN_SRC python :session default
+dfY.var(axis=0)
+#+END_SRC
+
+#+RESULTS:
+: 5943.331347923785
+
+
+#+BEGIN_SRC python :session default :exports both :results file
+def rand():
+    return random.randint(0, dfX.shape[1] - 1)
+
+rand_cols = [rand() for i in range(4)]
+
+sns_plot = sns.pairplot(dfX[rand_cols])
+path2 = "./img/q2.png"
+sns_plot.savefig(path2)
+path2
+#+END_SRC
+
+#+RESULTS:
+[[file:./img/q2.png]]
+
+* Q3
+
+Donner la matrix des correlations. Tracer le graphes de la décroissance des valeurs propres de la matrice de corrélation. Expliquer pourquoi il est légitime de ne garder que les premières variables de l’ACP. On gardera 60 variables dans la suite.
+
+La matrice des correlations est définie de la manière suivante:
+
+$$Cor(X) = (X - \mathbb{E}(X))^T(X - \mathbb{E}(X))$$
+
+Mais nous avons vu dans la question précedente que l'espérence de $X$ est nulle, donc notre matrice des correlations est égale à la matrice de Gram:
+
+$$Cor(X) = X^TX$$
+
+#+BEGIN_SRC python :session default :exports both :results file
+X = np.matrix(dfX)
+Y = np.matrix(dfY)
+G = X.T@X
+u, s, vh = np.linalg.svd(G)
+
+path3 = "./img/q3.png"
+plt.figure(0)
+plt.scatter(range(len(s)), s)
+plt.savefig(path3)
+
+X2 = X@u[:,0:60]
+X2.shape
+
+path3
+#+END_SRC
+
+#+RESULTS:
+[[file:./img/q3.png]]
