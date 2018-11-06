@@ -107,6 +107,7 @@ import seaborn as sns
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
+import scipy.stats as stat
 #+END_SRC
 
 #+RESULTS:
@@ -589,31 +590,61 @@ print("R_pred OLS:", R_pred_ols)
 Coder la méthode de forward variable sélection. On pourra utiliser la statistique du test de nullité du coefficient (comme vu en cours). Pour l’instant, on ne met pas de critère d’arret sur la méthode. C’est à dire que l’on ajoute une variable à chaque étape jusqu’à retrouver la totalité des variables. Afficher l’ordre de séléction des variables.
 
 #+BEGIN_SRC python :session default :exports both :results output
-def fast_forward_selection(X_train, Y_train):
-  p = X_train.shape[1]
-  n = X_train.shape[0]
-  res_prev = Y_train
-  X = get_X(X_train)
-  tstats = []
-  col_max = 0
-  tstat_max = 0
-  for i in range(p + 1):
-    X_i = X[:, i]
-    model_i = LinearRegression(fit_intercept=False).fit(X_i, res_prev)
-    X_i_bar = get_mean(X_i)
-    Y_pred = model_i.predict(X_i)
-    res_new = Y_train - Y_pred
-    sigma_est = np.sqrt((res_new.T@res_new)[0,0])
-    tstat = model_i.coef_[0,0] * (1 / (n - 1) * sigma_est * np.sqrt(inv(X_i.T@X_i)[0,0])) 
-    if tstat > tstat_max:
-      col_max = i
-      tstat_max = tstat
-    tstats.append(tstat)
-  print(col_max)
-  return 0
+  def get_p_value(t_stat, deg):
+      # compute the p-value if t_stat follows a Student of degree deg
+      p_val = (1 - stat.t.cdf(abs(t_stat), deg)) * 2
+      return p_val
 
-fast_forward_selection(X_train, Y_train)
+  def fast_forward_selection(X_train, Y_train, stop):
+    p = X_train.shape[1]
+    n = X_train.shape[0]
+    res_prev = Y_train
+    X = get_X(X_train)
+    col_maxs = []
+    pvalues = []
+    for i in range(p + 1):
+      col_max = 0
+      tstat_max = 0
+
+      for j in range(p + 1):
+        if j not in col_maxs:
+          X_j = X[:, j]
+          model_j = LinearRegression(fit_intercept=False).fit(X_j, res_prev)
+          X_j_bar = get_mean(X_j)
+          Y_pred = model_j.predict(X_j)
+          res_new = Y_train - Y_pred
+          sigma_est = np.sqrt(1 / (n - 1) * (res_new.T@res_new)[0,0])
+          tstat = abs(model_j.coef_[0,0]) / (sigma_est * np.sqrt(inv(X_j.T@X_j)[0,0])) 
+          if tstat > tstat_max:
+            col_max = j
+            tstat_max = tstat
+
+      pvalue = get_p_value(tstat_max, n - 1)
+      if pvalue < stop:
+        res_prev = res_new
+        col_maxs.append(col_max)
+        pvalues.append(pvalue)
+      else:
+        return [col_maxs, pvalues]
+
+    return [col_maxs, pvalues]
 #+END_SRC
 
 #+RESULTS:
-: 0
+
+#+BEGIN_SRC python :session default :exports both :results output
+result = fast_forward_selection(X_train, Y_train, 0.1)
+print("Ordre de selection des variables:", result[0])
+print("pvalues", result[1])
+#+END_SRC
+
+#+RESULTS:
+: Ordre de selection des variables: [0, 59, 124, 168, 24, 35, 175, 100]
+: pvalues [0.0, 4.594366220800339e-09, 1.9448257604359753e-07, 2.230973249894852e-05, 6.161408358718035e-05, 0.00014767475703725275, 0.00027147789041803705, 0.028673792423168587]
+
+#+BEGIN_SRC python :session default :exports both :results output
+print(result)
+#+END_SRC
+
+#+RESULTS:
+: [0, 59, 124, 168, 24, 175, 35, 100, 8, 95, 134, 104, 28, 116, 18, 113, 93, 198, 149, 163, 129, 122, 147, 80, 34, 111, 23, 20, 19, 46, 61, 183, 85, 169, 208, 44, 82, 159, 50, 87, 54, 178, 5, 12, 160, 45, 86, 189, 139, 96, 161, 51, 144, 117, 89, 30, 148, 137, 77, 143, 14, 209, 56, 130, 21, 196, 179, 184, 63, 10, 4, 48, 132, 36, 109, 154, 101, 176, 180, 73, 151, 150, 29, 17, 103, 170, 107, 76, 162, 192, 167, 6, 120, 98, 186, 62, 91, 115, 106, 79, 210, 110, 66, 187, 75, 121, 42, 25, 94, 92, 177, 173, 3, 78, 153, 131, 83, 60, 135]
