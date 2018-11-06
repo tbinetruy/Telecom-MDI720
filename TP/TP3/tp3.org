@@ -595,6 +595,8 @@ def fast_forward_selection(X_train, Y_train):
   res_prev = Y_train
   X = get_X(X_train)
   tstats = []
+  col_max = 0
+  tstat_max = 0
   for i in range(p + 1):
     X_i = X[:, i]
     model_i = LinearRegression(fit_intercept=False).fit(X_i, res_prev)
@@ -602,11 +604,16 @@ def fast_forward_selection(X_train, Y_train):
     Y_pred = model_i.predict(X_i)
     res_new = Y_train - Y_pred
     sigma_est = np.sqrt((res_new.T@res_new)[0,0])
-    tstat = model_i.coef_[0,0] * (1 / (n - 1) * sigma_est * np.sqrt(inv(X_i.T@X_i)[0,0]))
+    tstat = model_i.coef_[0,0] * (1 / (n - 1) * sigma_est * np.sqrt(inv(X_i.T@X_i)[0,0])) 
+    if tstat > tstat_max:
+      col_max = i
+      tstat_max = tstat
     tstats.append(tstat)
+  print(col_max)
   return 0
 
 fast_forward_selection(X_train, Y_train)
 #+END_SRC
 
 #+RESULTS:
+: 0
