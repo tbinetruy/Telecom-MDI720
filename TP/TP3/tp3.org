@@ -600,9 +600,9 @@ def fast_forward_selection(X_train, Y_train):
     model_i = LinearRegression(fit_intercept=False).fit(X_i, res_prev)
     X_i_bar = get_mean(X_i)
     Y_pred = model_i.predict(X_i)
-    u = Y_train - Y_pred
-    s = np.sqrt((u.T@u)[0,0])
-    tstat = model_i.coef_[0,0] * (1 / (n - 1) * s * np.sqrt(inv(X_i.T@X_i)[0,0]))
+    res_new = Y_train - Y_pred
+    sigma_est = np.sqrt((res_new.T@res_new)[0,0])
+    tstat = model_i.coef_[0,0] * (1 / (n - 1) * sigma_est * np.sqrt(inv(X_i.T@X_i)[0,0]))
     tstats.append(tstat)
   return 0
 
