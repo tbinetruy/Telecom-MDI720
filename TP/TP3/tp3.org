@@ -3,23 +3,103 @@
 #+HTML_HEAD: <style>.figure img { width: 100% }</style>
 #+HTML_HEAD: <style>pre.example { background-color: aliceblue }</style>
 
-* Introduction
 
-#+begin_src bash
+#+begin_src bash :exports none
   mkdir -p img
   ls | grep img
 #+end_src
 
-#+RESULTS:
-: img
+* Introduction
+  
+Nous travaillons sur la base de données ~diabetes~ de python. La base initiale comporte $n = 442$ patients et $p = 10$ covariables. La variable $Y$ à expliquer est un score correspondant à l’évolution de la maladie. Pour s’amuser, un robot malicieux a contaminé le jeu de données en y ajoutant 200 variables explicatives inappropriées. Ensuite, non-content d’avoir déjà perverti notre jeu de données, il a volontairement mélangé les variables entre elle de façon aléatoire. Bien entendu le robot a ensuite pris soin d’effacer toute trace de son acte crapuleux si bien que nous ne connaissons pas les variables pertinentes. La nouvelle base de données comporte $n = 442$ patients et $p = 210$ covariables, notés $X$. Saurez-vous déjouer les plans de ce robot farceur et retrouver les variables pertinentes ?
 
+* OLS Library
+  
+#+BEGIN_SRC python :session default :exports both :results output
+def get_X(X_tild):
+  X_tild = X_tild.tolist()
+  X = [[1] +  X_tild[i] for i in range(0, len(X_tild))]
+  return np.matrix(X)
+
+# X [numpy matrix] is an n by p + 1 matrix
+# Y [numpy matrix] is a column vector of n elements
+# returns the n-vector for our estimator
+def get_theta_hat(X, Y): 
+    G = inv(X.T@X)
+    theta_hat = G@X.T@Y
+    
+    return theta_hat
+
+# Y [numpy matrix] - vector to calculate arithmetic mean against
+# Returns the arithmetic mean of Y
+def get_Y_bar(Y):
+    return sum(Y) / len(Y)
+
+# x [numpy matrix] - the point to find an estimation for, a row vector of length n
+# theta_hat [numpy matrix] - our estimator column vector of n elements
+# Returns the estimation at point x given the estimator theta_hat
+def get_Y_hat(X, theta_hat):
+    return X@theta_hat
+
+# Calculates the determination coefficient for our X matrix and Y vector
+def get_R2(X_train, Y_train, X_test, Y_test):
+    X_train = get_X(X_train)
+    X_train = np.matrix(X_train)
+    X_test = get_X(X_test)
+    X_test = np.matrix(X_test)
+
+    theta_hat = get_theta_hat(X_train, Y_train)
+    Y_bar = get_Y_bar(Y_test)
+    Y_hat = get_Y_hat(X_test, theta_hat)
+    SSR = sum([(Y_hat[i] - Y_test[i])**2 for i in range(0, len(Y_test))])
+    SST = sum([(Y_test[i] - Y_bar)**2 for i in range(0, len(Y_test))])
+    return 1 - SSR / SST
+
+# Noise variance for X and Y
+def get_sig2(X, Y):
+    theta_hat = get_theta_hat(X, Y)
+    Y_hat = get_Y_hat(X, theta_hat)
+    return sum([(Y_hat[i] - Y[i])**2 for i in range(0, len(Y))]) / (len(Y) - 2)
+
+# Covariance matrix for X and Y
+def get_estimator_covariance_mat(X, Y):
+    sig2 = get_sig2(X, Y).item()
+    return sig2 * inv(X.T@X)
+
+# Helper pour calculer le rang d'une matrix X via Numpy
+def rank(X):
+    return np.linalg.matrix_rank(X)
+
+# Calculates the t-test for the i'th estimator of our X-Y linear system
+def student_test_i(X, Y, i):
+    theta_hat = get_theta_hat(X, Y)
+    var_thetaHat = get_estimator_covariance_mat(X, Y)
+    return abs(theta_hat[i] / math.sqrt(var_thetaHat[i,i]))
+
+# Returns a vector containing all the t-tests for our estimators (in the same order)
+def student_test(X, Y):
+    return [student_test_i(X, Y, i) for i in range(0, rank(X))]
+
+# Helper to get Student distribution of degree deg an quantile of level lev
+def get_students_quantile(deg, level):
+    return scipy.stats.t(df=deg).ppf(level)
+
+#+END_SRC
+
+#+RESULTS:
+
+
+* Question 1
+  
+/Importer la base de données ~data_dm3.csv~ disponible depuis le lien https://bitbucket.org/portierf/shared_files/downloads/data_dm3.csv. La dernière colonne est la variable à expliquer. Les autres colonnes sont les variables explicatives. Préciser le nombre de variables explicatives et le nombre d’observations./
+  
 #+BEGIN_SRC python :exports both :session default
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import math
 import scipy.stats
-from numpy.linalg import inv
+from numpy.linalg import inv, eig
 from scipy import stats
 import statsmodels.api as sm
 import random
@@ -40,17 +120,16 @@ df.head()
 #+END_SRC
 
 #+RESULTS:
-:         0         1         2         3         4         5    ...         205       206       207       208       209    210
-: 0 -1.298173 -0.162249  1.223379  1.355554  1.080171  0.634979  ...    0.279299 -1.416020 -2.332363  0.215096 -0.693319  151.0
-: 1  0.166951 -0.338060 -0.618867  0.759366  1.134281 -0.536844  ...    0.225958 -0.822288  0.382838 -0.718829 -0.188993   75.0
-: 2 -0.416177 -0.205659 -1.282226  1.675500  1.523746  0.192029  ...    0.139267 -1.901196  0.048210  0.220205  0.471588  141.0
-: 3  0.867184 -0.398667  0.093501  0.025971  1.852099  0.789774  ...    0.723819  1.316367  0.088218  0.619496  1.061662  206.0
-: 4  1.193282 -0.936980 -0.725039  0.766078  0.223489 -1.584622  ...    2.040010 -1.703110 -1.901502  1.778811 -0.489853  135.0
+:         0         1         2         3         4         5         6    ...         204       205       206       207       208       209    210
+: 0 -1.298173 -0.162249  1.223379  1.355554  1.080171  0.634979  0.298741  ...   -0.436399  0.279299 -1.416020 -2.332363  0.215096 -0.693319  151.0
+: 1  0.166951 -0.338060 -0.618867  0.759366  1.134281 -0.536844 -0.075120  ...    1.119430  0.225958 -0.822288  0.382838 -0.718829 -0.188993   75.0
+: 2 -0.416177 -0.205659 -1.282226  1.675500  1.523746  0.192029 -0.235840  ...   -2.579347  0.139267 -1.901196  0.048210  0.220205  0.471588  141.0
+: 3  0.867184 -0.398667  0.093501  0.025971  1.852099  0.789774  0.801775  ...   -0.884172  0.723819  1.316367  0.088218  0.619496  1.061662  206.0
+: 4  1.193282 -0.936980 -0.725039  0.766078  0.223489 -1.584622  1.146866  ...   -0.642504  2.040010 -1.703110 -1.901502  1.778811 -0.489853  135.0
 : 
 : [5 rows x 211 columns]
 
-* Question 1
-  
+
 #+BEGIN_SRC python :session default :exports both
 df.shape[1]
 #+END_SRC
@@ -98,7 +177,7 @@ print("Numbre d'observations", dfX.shape[0])
 
 * Question 2
   
-Les variables explicatives sont-elles centrées ? Normalisées ? Qu’en est-il de la variable à expliquer ? Tracer un scatter plot de la base de données avec 4 covariables prises au hasard et la variable à expliquer (un scatterplot regroupe les graphes de chacune des variables en fonction de chacune des autres). Commenter les graphiques obtenus.
+/Les variables explicatives sont-elles centrées ? Normalisées ? Qu’en est-il de la variable à expliquer ? Tracer un scatter plot de la base de données avec 4 covariables prises au hasard et la variable à expliquer (un scatterplot regroupe les graphes de chacune des variables en fonction de chacune des autres). Commenter les graphiques obtenus./
 
 #+BEGIN_SRC python :session default :exports both
 dfX.mean(axis=0)
@@ -272,48 +351,18 @@ path2
 #+RESULTS:
 [[file:./img/q2.png]]
 
-* Q3
 
-Donner la matrix des correlations. Tracer le graphes de la décroissance des valeurs propres de la matrice de corrélation. Expliquer pourquoi il est légitime de ne garder que les premières variables de l’ACP. On gardera 60 variables dans la suite.
-
-La matrice des correlations est définie de la manière suivante:
-
-$$Cor(X) = (X - \mathbb{E}(X))^T(X - \mathbb{E}(X))$$
-
-Mais nous avons vu dans la question précedente que l'espérence de $X$ est nulle, donc notre matrice des correlations est égale à la matrice de Gram:
-
-$$Cor(X) = X^TX$$
-
-#+BEGIN_SRC python :session default :exports both :results file
-X = np.matrix(dfX)
-Y = np.matrix(dfY)
-G = X.T@X
-u, s, vh = np.linalg.svd(G)
-
-path3 = "./img/q3.png"
-plt.figure(0)
-plt.scatter(range(len(s)), s)
-plt.savefig(path3)
-plt.close()
-
-X2 = X@u[:,0:60]
-X2.shape
-
-path3
-#+END_SRC
-
-#+RESULTS:
-[[file:./img/q3.png]]
-
-* Question 4
-
-Echantillon d’apprentissage et de test. Créer 2 échantillons : un pour apprendre le modèle, un pour tester le modèle. On mettra 20% de la base dans l’échantillon ’test’. Donner les tailles de chacun des 2 échantillons.
+* Question 3
+  
+/Echantillon d’apprentissage et de test. Créer 2 échantillons : un pour apprendre le modèle $X_{\mbox{train}}$, un pour tester le modèle X test. On mettra 20% de la base dans l’échantillon ’test’. Donner les tailles de chacun des 2 échantillons. On notera que le nouvel échantillon de covariables $X_{\mbox{train}}$ n’est pas normalizé. Dans la suite, on fera donc bien attention à inclure l’intercept dans nos régression./
 
 #+BEGIN_SRC python :session default :exports both :results output
-X_test = X2[0:88,:]
-X_train = X2[87:-1,:]
-
+X = np.matrix(dfX)
 Y = np.matrix(dfY).T
+
+X_test = X[0:88,:]
+X_train = X[87:-1,:]
+
 Y_test = Y[0:88]
 Y_train = Y[87:-1]
 
@@ -324,65 +373,92 @@ print("Y train shape:", Y_train.shape)
 #+END_SRC
 
 #+RESULTS:
-: X test shape: (88, 60)
-: X train shape: (354, 60)
+: X test shape: (88, 210)
+: X train shape: (354, 210)
 : Y test shape: (88, 1)
 : Y train shape: (354, 1)
 
-* Question 5
 
-Suivant les observations de la question (Q3), appliquer la méthode de "PCA before OLS" qui consiste à faire une ACP avant la régression. On tracera les valeurs des coefficients de régression calculés (sans l’intercept). Sur un autre graphique, faire de même avec la méthode des moindres carrées classique.
+* Question 4
+  
+/Donner la matrice de covariance calculée sur $X_{\mbox{train}}$. Tracer le graphe de la décroissance des valeurs propres de la matrice de corrélation. Expliquer pourquoi il est légitime de ne garder que les premières variables de l’ACP. On gardera 60 variables dans la suite./
+
+La matrice des correlations est définie de la manière suivante:
+
+$$Cor(X) = (X - \mathbb{E}(X))^T(X - \mathbb{E}(X))$$
+
+Mais nous avons vu dans la question précedente que l'espérence de $X$ est nulle, donc notre matrice des correlations est égale à la matrice de Gram:
+
+$$Cor(X) = X^TX$$
+
+#+BEGIN_SRC python :session default :exports both :results file
+u, s, vh = np.linalg.svd(X_train)
+
+path3 = "./img/q3.png"
+plt.figure(0)
+plt.scatter(range(len(s)), s)
+plt.savefig(path3)
+plt.close()
+
+path3
+#+END_SRC
+
+#+RESULTS:
+[[file:./img/q3.png]]
+
+* Question 5
+  
+/Suivant les observations de la question (Q4), appliquer la méthode de "PCA before OLS" qui consiste à appliquer OLS avec $Y$ et $X_{\mbox{train}}V_{1:60}$, où $V_{1:60}$ contient les vecteurs propres (associé aux 60 plus grandes valeurs propres) de la matrice de covariance. Faire une régression linéaire (avec intercept), puis tracer les valeurs des coefficients (hors intercept). Sur un autre graphique, faire de même avec la méthode des moindres carrés classique./
+
 
 #+BEGIN_SRC python :session default :exports both :results output
-pca = PCA()
-X_pca = pca.fit_transform(X_train)
-
-theta_hat_pca_before_ols = LinearRegression(fit_intercept=True).fit(X_pca,Y_train)
+u, s, vh = np.linalg.svd(X_train)
+Xpca = X_train@vh.T[:,0:60]
+print(Xpca.shape)
+theta_hat_pca_before_ols = LinearRegression(fit_intercept=True).fit(Xpca, Y_train)
 print(theta_hat_pca_before_ols.coef_)
+
 #+END_SRC
 
 #+RESULTS:
 #+begin_example
-[[ 1.26364895e+01  3.18108225e+00  5.26963933e+00  8.05633136e+00
-  -7.90881197e-01 -6.36003104e-01 -2.84106765e+00 -5.96359867e-01
-  -6.49869641e-01 -1.12653247e-01  2.05005317e+00  3.97927997e+00
-   3.76613502e+00 -2.62445233e+00 -9.10733887e-01  2.76357173e-01
-  -3.02869564e+00  8.68427753e-01  3.24806208e+00 -2.90439251e+00
-   1.61888699e+00 -1.30124617e+00  9.96551849e-01  1.20663568e+00
-   3.71922962e+00  2.18895085e+00 -2.79072527e-01 -4.11746293e+00
-  -4.85899334e+00 -2.12382203e+00 -3.70217064e+00  3.89457583e+00
-  -1.62216394e-02  2.50868142e-01  9.28227173e-01 -2.52446966e+00
-   7.16144172e-01  1.37400778e+00  1.97283773e+00  3.26713777e+00
-   4.46212869e+00  2.39244875e-01  1.29044673e+00 -2.10821711e+00
-   5.12407575e+00  2.82660249e+00  3.95622150e-01 -4.32020189e+00
-   1.01873425e+01  1.89246651e+00  2.64723407e+00  1.10788712e+01
-   5.64834675e+00  2.67553057e+01  2.46994859e+00 -4.61194346e+00
-   5.59716496e+00 -1.73891098e+00  2.61007452e+00 -5.02746493e+01]]
+(354, 60)
+[[-12.75821274  -2.86527904   5.67546465  -7.8304322    0.8730228
+   -0.510926     2.90206979  -0.58154627   0.55582918  -0.08826377
+    2.04786049   3.98581981   3.81976816  -2.5591383   -0.82325319
+    0.36608229   3.04395014  -0.84867545  -3.24281278   2.92107977
+   -0.31235061  -1.97069354   1.13640033  -1.27116502   3.71915621
+    2.13656085  -0.1668238    4.57159366   4.33885511   2.42475626
+    3.41038436  -4.13141342   0.08306892  -0.23820335   0.84984505
+   -2.52820829  -0.67919575   1.50587214   1.87246496  -3.26725914
+    4.4285625    0.58420678   0.67946821  -2.31750509  -4.71624924
+   -3.29005274   0.40495368  -4.46990869  10.16820793   1.93010364
+   -2.4674607  -11.07662014   5.65941266 -26.71008725  -2.54794028
+   -4.611452     5.63692489  -1.77927076   2.61250715  50.27720511]]
 #+end_example
 
 #+BEGIN_SRC python :session default :exports both :results output
 theta_hat_ols = LinearRegression(fit_intercept=True).fit(X_train, Y_train)
-print(theta_hat_ols.coef_)
+print(theta_hat_ols.intercept_)
+print(X_train.shape)
 #+END_SRC
 
 #+RESULTS:
-#+begin_example
-[[-1.51667749e+01 -1.01182490e+00 -3.45632561e-01 -5.15852648e+00
-   3.03062233e+00 -3.90311506e+00 -3.22055004e+00 -1.52690999e+00
-  -9.87227874e-04 -3.97440996e+00 -5.94668875e-01 -1.82192084e+00
-  -1.38467265e+00  1.10609902e+00 -8.90434839e-01  2.67250398e+00
-   1.90418388e+00 -2.98230234e+00  3.02719326e+00  9.81985206e-01
-   1.11715367e+00 -2.98165364e+00 -2.10125175e-01  1.09347995e+00
-   1.21441877e+00 -2.48086067e+00 -3.75683271e+00  1.65783367e+00
-  -1.88117865e-01 -1.36417171e-01 -2.84190241e+00 -1.90882866e+00
-  -5.13304075e-01  1.17744906e+00 -7.66186897e-01 -3.45132362e+00
-   1.30850227e+00  6.95863796e-01 -8.80289371e-01 -4.54251967e-01
-   4.01316077e+00 -2.73617480e+00  1.20430927e+00 -8.06324581e-01
-  -1.44501300e+00 -2.53189706e+00  1.24256613e-01 -2.62578800e+00
-   1.21649820e+00  5.13308425e+00  1.25623509e+01  1.24202418e+01
-  -3.92976692e+00  2.67126973e+01  8.92524327e-01  6.46338979e+00
-  -6.03774453e+00  2.22000733e+00 -4.03536252e+00 -5.00372683e+01]]
-#+end_example
+: [153.48863436]
+: (354, 210)
+
+
+#+BEGIN_SRC python :session default :exports both :results file
+plt.figure(0)
+path5 = "./q5b.png"
+plt.scatter(range(theta_hat_pca_before_ols.coef_.shape[1]), theta_hat_pca_before_ols.coef_)
+plt.savefig(path5)
+plt.close()
+path5
+#+END_SRC
+
+#+RESULTS:
+[[file:./q5b.png]]
 
 
 #+BEGIN_SRC python :session default :exports both :results file
@@ -397,21 +473,9 @@ path4
 #+RESULTS:
 [[file:./q5a.png]]
 
-#+BEGIN_SRC python :session default :exports both :results file
-plt.figure(0)
-path5 = "./q5b.png"
-plt.scatter(range(theta_hat_pca_before_ols.coef_.shape[1]), theta_hat_pca_before_ols.coef_)
-plt.savefig(path5)
-plt.close()
-path5
-#+END_SRC
-
-#+RESULTS:
-[[file:./q5b.png]]
-
 * Question 6
-
-Donner les valeurs des intercepts pour les 2 régressions précédentes. Donner la valeur moyenne de la variable Y (sur le train set). Les intercepts des 2 questions sont-ils égaux ? Commenter. Centrer et réduire les variables après ACP (de petite dimension). Faire une régression avec ces variables et vérifier que l’intercept est bien égal à la moyenne de Y sut le train.
+  
+/Donner les valeurs des intercepts pour les 2 régressions précédentes. Donner la valeur moyenne de la variable $Y$ (sur le train set). Les intercepts des 2 questions sont-ils égaux ? Commenter. Uniquement pour cette question, centrer et réduire les variables après ACP (de petite dimension). Faire une régression avec ces variables et vérifier que l’intercept est bien égal à la moyenne de $Y$ sur le train./
 
 #+BEGIN_SRC python :session default :exports both :results output
 print("Intercept OLS:", theta_hat_ols.intercept_)
@@ -419,5 +483,244 @@ print("Intercept PCA before OLS:", theta_hat_pca_before_ols.intercept_)
 #+END_SRC
 
 #+RESULTS:
-: Intercept OLS: [152.77106978]
-: Intercept PCA before OLS: [156.43785311]
+: Intercept OLS: [153.48863436]
+: Intercept PCA before OLS: [152.77106978]
+
+#+BEGIN_SRC python :session default :exports both :results output
+  Xpca_c = Xpca-Xpca.mean(axis=0)
+  Xpca_n = Xpca_c/np.sqrt(Xpca.var(axis=0))
+
+  q6_model = LinearRegression(fit_intercept=True).fit(Xpca_n, Y_train)
+  print("Intercept for OLS after normalizationn of PCA:", q6_model.intercept_)
+  print("Y_train mean:", Y_train.mean())
+#+END_SRC
+
+#+RESULTS:
+: Intercept for OLS after normalizationn of PCA: [156.43785311]
+: Y_train mean: 156.43785310734464
+
+* Question 7
+
+Pour les 2 méthodes (OLS et PCA before OLS) : Tracer les résidus de la prédiction sur l’échantillon test. Tracer leur densité (on pourra par exemple utiliser un histogramme). Calculer le coefficient de détermination sur l’échantillon test. Calculer le risque de prédiction sur l’échantillon test.
+
+#+BEGIN_SRC python :session default :exports both :results output
+Y_pred_pca = theta_hat_pca_before_ols.predict(X_test@vh.T[:,:60])
+res_pca = Y_test - Y_pred_pca
+#+END_SRC
+
+#+RESULTS:
+
+#+BEGIN_SRC python :session default :exports both :results file
+path7a = "./img/q7a.png"
+plt.figure(0)
+plt.scatter(range(len(res_pca)), [r[0] for r in res_pca])
+plt.savefig(path7a)
+plt.close()
+
+path7a
+#+END_SRC
+
+#+RESULTS:
+[[file:./img/q7a.png]]
+
+#+BEGIN_SRC python :session default :exports both :results output
+Y_pred_ols = theta_hat_ols.predict(X_test)
+res_ols = Y_test - Y_pred_ols
+#+END_SRC
+
+#+RESULTS:
+
+#+BEGIN_SRC python :session default :exports both :results file
+path7b = "./img/q7b.png"
+plt.figure(0)
+plt.scatter(range(len(res_ols)), [r[0] for r in res_ols])
+plt.savefig(path7b)
+plt.close()
+
+path7b
+#+END_SRC
+
+#+RESULTS:
+[[file:./img/q7b.png]]
+
+#+BEGIN_SRC python :session default :exports both :results file
+f, axes = plt.subplots(1, 2)
+
+plt.figure(0)
+sns.set()
+path7c = "./img/q7c.png"
+plt7c = sns.distplot(res_pca, bins=20, kde=True, ax=axes[0])
+plt7c = sns.distplot(res_ols, bins=20, kde=True, ax=axes[1])
+axes[0].set_title("PCA before OLS")
+axes[1].set_title("OLS")
+plt7c.figure.savefig(path7c)
+
+path7c
+#+END_SRC
+
+#+RESULTS:
+[[file:./img/q7c.png]]
+
+#+BEGIN_SRC python :session default :exports both :results output
+# R^2 coefficient
+def getR2(Y, Y_pred):
+  Y_bar = sum(Y) / len(Y)
+  SSR = (Y_bar - Y_pred).T@(Y_bar - Y_pred)
+  SST = (Y - Y_bar).T@(Y - Y_bar)
+  return SSR / SST
+
+print("R2 for PCA before OLS:", getR2(Y_test, Y_pred_pca))
+print("R2 for OLS:", getR2(Y_test, Y_pred_ols))
+print(get_R2(X_train@vh.T[:,:60], Y_train, X_test@vh.T[:,:60], Y_test))
+print(get_R2(X_train[:,:60], Y_train, X_test[:,:60], Y_test))
+print(get_theta_hat(get_X(X_train), Y_train)[0])
+print(get_theta_hat(get_X(X_train@vh.T[:,:60]), Y_train)[0])
+print(get_theta_hat(get_X(Xpca_n), Y_train)[0])
+
+print(rank(X_train), X_train.shape)
+print(LinearRegression(fit_intercept=True).fit(X_train, Y_train).intercept_)
+print(LinearRegression(fit_intercept=True).fit(X_train@vh.T[:,:60], Y_train).intercept_)
+print(LinearRegression(fit_intercept=True).fit(Xpca_n, Y_train).intercept_)
+#+END_SRC
+
+#+RESULTS:
+#+begin_example
+R2 for PCA before OLS: [[0.61890694]]
+R2 for OLS: [[0.6857439]]
+[[0.26426591]]
+[[-0.39340487]]
+[[126.45352367]]
+[[152.77106978]]
+[[156.43785311]]
+60 (354, 210)
+(array([ 2.01454174e+03+0.00000000e+00j,  4.49444692e+02+0.00000000e+00j,
+        1.85222645e+03+0.00000000e+00j,  1.83557362e+03+0.00000000e+00j,
+        1.82688555e+03+0.00000000e+00j,  1.79159460e+03+0.00000000e+00j,
+        3.42241797e+02+0.00000000e+00j,  2.84151281e+02+0.00000000e+00j,
+        2.13235362e+02+0.00000000e+00j,  1.75922693e+02+0.00000000e+00j,
+        8.21973543e+02+0.00000000e+00j,  8.64188664e+02+0.00000000e+00j,
+        9.28614948e+02+0.00000000e+00j,  9.44755190e+02+0.00000000e+00j,
+        1.77539844e+03+0.00000000e+00j,  9.99513464e+02+0.00000000e+00j,
+        1.75029844e+03+0.00000000e+00j,  1.02682497e+03+0.00000000e+00j,
+        1.05486862e+03+0.00000000e+00j,  1.71661151e+03+0.00000000e+00j,
+        1.70364246e+03+0.00000000e+00j,  1.69085589e+03+0.00000000e+00j,
+        1.67694381e+03+0.00000000e+00j,  1.66490844e+03+0.00000000e+00j,
+        1.64073035e+03+0.00000000e+00j,  1.63665211e+03+0.00000000e+00j,
+        1.61441635e+03+0.00000000e+00j,  1.60742053e+03+0.00000000e+00j,
+        1.63970081e+02+0.00000000e+00j,  1.19079257e+02+0.00000000e+00j,
+        1.57897810e+03+0.00000000e+00j,  1.55481015e+03+0.00000000e+00j,
+        1.60037920e+03+0.00000000e+00j,  1.50818489e+03+0.00000000e+00j,
+        1.12090598e+03+0.00000000e+00j,  1.26554325e+03+0.00000000e+00j,
+        1.19407309e+03+0.00000000e+00j,  1.16353047e+03+0.00000000e+00j,
+        1.13009389e+03+0.00000000e+00j,  1.24386862e+03+0.00000000e+00j,
+        1.23460294e+03+0.00000000e+00j,  1.13920957e+03+0.00000000e+00j,
+        1.20057855e+03+0.00000000e+00j,  1.15913685e+03+0.00000000e+00j,
+        1.54229348e+03+0.00000000e+00j,  1.52949789e+03+0.00000000e+00j,
+        1.52708972e+03+0.00000000e+00j,  1.31249499e+03+0.00000000e+00j,
+        1.30785676e+03+0.00000000e+00j,  1.33445934e+03+0.00000000e+00j,
+        1.41138619e+03+0.00000000e+00j,  1.43737973e+03+0.00000000e+00j,
+        1.37135684e+03+0.00000000e+00j,  1.37960803e+03+0.00000000e+00j,
+        1.44394952e+03+0.00000000e+00j,  1.42301212e+03+0.00000000e+00j,
+        1.39516776e+03+0.00000000e+00j,  1.35471189e+03+0.00000000e+00j,
+        2.18763727e+01+0.00000000e+00j,  2.63052840e+00+0.00000000e+00j,
+       -5.83409027e-13+0.00000000e+00j, -4.55797382e-13+0.00000000e+00j,
+       -4.09601395e-13+8.19188978e-14j, -4.09601395e-13-8.19188978e-14j,
+        3.91938661e-13+0.00000000e+00j, -3.62955025e-13+1.26892231e-13j,
+       -3.62955025e-13-1.26892231e-13j,  3.66675734e-13+0.00000000e+00j,
+       -3.78672011e-13+0.00000000e+00j, -3.55901589e-13+6.67098925e-14j,
+       -3.55901589e-13-6.67098925e-14j, -3.59010959e-13+1.92910759e-14j,
+       -3.59010959e-13-1.92910759e-14j, -3.10105406e-13+9.52124660e-14j,
+       -3.10105406e-13-9.52124660e-14j,  2.52074342e-13+2.00266712e-13j,
+        2.52074342e-13-2.00266712e-13j, -2.87355440e-13+9.28754789e-14j,
+       -2.87355440e-13-9.28754789e-14j,  3.21159461e-13+1.02218269e-13j,
+        3.21159461e-13-1.02218269e-13j,  3.28083292e-13+7.14025237e-14j,
+        3.28083292e-13-7.14025237e-14j,  3.42386692e-13+8.99945691e-15j,
+        3.42386692e-13-8.99945691e-15j,  3.24668396e-13+5.28025607e-14j,
+        3.24668396e-13-5.28025607e-14j,  2.32618600e-13+1.52877879e-13j,
+        2.32618600e-13-1.52877879e-13j,  3.10220092e-13+0.00000000e+00j,
+        2.40757830e-13+1.18742246e-13j,  2.40757830e-13-1.18742246e-13j,
+        2.96006970e-13+0.00000000e+00j,  2.69331509e-13+7.48430737e-14j,
+        2.69331509e-13-7.48430737e-14j, -2.56159611e-13+1.06181631e-13j,
+       -2.56159611e-13-1.06181631e-13j, -2.07471598e-13+1.48107784e-13j,
+       -2.07471598e-13-1.48107784e-13j, -2.90074442e-13+4.00502724e-14j,
+       -2.90074442e-13-4.00502724e-14j, -2.92572454e-13+7.71974094e-15j,
+       -2.92572454e-13-7.71974094e-15j, -2.12403743e-13+1.20768179e-13j,
+       -2.12403743e-13-1.20768179e-13j, -2.70945077e-13+3.68966907e-14j,
+       -2.70945077e-13-3.68966907e-14j, -1.23773813e-13+1.78725191e-13j,
+       -1.23773813e-13-1.78725191e-13j, -2.40203272e-14+1.99047007e-13j,
+       -2.40203272e-14-1.99047007e-13j,  1.60980009e-13+1.65555533e-13j,
+        1.60980009e-13-1.65555533e-13j,  2.74270598e-13+3.09170934e-14j,
+        2.74270598e-13-3.09170934e-14j,  1.82452010e-13+1.46691602e-13j,
+        1.82452010e-13-1.46691602e-13j,  2.40795766e-13+9.06331785e-14j,
+        2.40795766e-13-9.06331785e-14j,  8.39082266e-14+1.80850607e-13j,
+        8.39082266e-14-1.80850607e-13j,  2.44620664e-13+4.64491173e-14j,
+        2.44620664e-13-4.64491173e-14j, -2.29284193e-13+4.48626373e-14j,
+       -2.29284193e-13-4.48626373e-14j,  2.44505077e-13+3.83615636e-15j,
+        2.44505077e-13-3.83615636e-15j, -2.21767525e-13+5.71863085e-14j,
+       -2.21767525e-13-5.71863085e-14j,  7.18022125e-14+1.60882073e-13j,
+        7.18022125e-14-1.60882073e-13j, -1.37251272e-14+1.55567608e-13j,
+       -1.37251272e-14-1.55567608e-13j, -6.68408347e-14+1.47463296e-13j,
+       -6.68408347e-14-1.47463296e-13j, -2.18779680e-13+1.87636416e-14j,
+       -2.18779680e-13-1.87636416e-14j,  1.42772507e-13+9.41599642e-14j,
+        1.42772507e-13-9.41599642e-14j,  1.05097346e-13+1.16758960e-13j,
+        1.05097346e-13-1.16758960e-13j, -1.30297393e-13+1.05872116e-13j,
+       -1.30297393e-13-1.05872116e-13j, -1.54350362e-13+8.94286003e-14j,
+       -1.54350362e-13-8.94286003e-14j, -1.86795652e-13+5.55057929e-14j,
+       -1.86795652e-13-5.55057929e-14j, -1.43488971e-14+1.30806275e-13j,
+       -1.43488971e-14-1.30806275e-13j,  1.60670749e-13+7.51208700e-14j,
+        1.60670749e-13-7.51208700e-14j,  1.79012779e-13+4.80843493e-14j,
+        1.79012779e-13-4.80843493e-14j,  1.99684828e-13+3.68578334e-15j,
+        1.99684828e-13-3.68578334e-15j, -1.65874164e-13+4.94539050e-14j,
+       -1.65874164e-13-4.94539050e-14j, -1.69592694e-13+1.31908305e-14j,
+       -1.69592694e-13-1.31908305e-14j, -5.89917116e-14+1.07317129e-13j,
+       -5.89917116e-14-1.07317129e-13j, -8.26099460e-14+9.76122948e-14j,
+       -8.26099460e-14-9.76122948e-14j,  1.70106235e-13+1.29664433e-14j,
+        1.70106235e-13-1.29664433e-14j, -1.18895577e-13+7.31718823e-14j,
+       -1.18895577e-13-7.31718823e-14j, -1.33138572e-13+5.94290753e-14j,
+       -1.33138572e-13-5.94290753e-14j,  1.18817034e-13+6.05971620e-14j,
+        1.18817034e-13-6.05971620e-14j, -1.38479832e-13+1.59457620e-14j,
+       -1.38479832e-13-1.59457620e-14j, -1.18393223e-13+4.28082828e-14j,
+       -1.18393223e-13-4.28082828e-14j, -9.70741328e-15+8.72951448e-14j,
+       -9.70741328e-15-8.72951448e-14j,  5.32159084e-14+8.23242193e-14j,
+        5.32159084e-14-8.23242193e-14j,  4.16512684e-14+8.03957825e-14j,
+        4.16512684e-14-8.03957825e-14j,  9.01253798e-14+6.62297528e-14j,
+        9.01253798e-14-6.62297528e-14j,  1.43040401e-13+0.00000000e+00j,
+        1.23660955e-13+2.92192168e-14j,  1.23660955e-13-2.92192168e-14j,
+       -8.95860690e-15+5.32525468e-14j, -8.95860690e-15-5.32525468e-14j,
+       -1.14372196e-13+0.00000000e+00j,  2.32124183e-14+3.35356051e-14j,
+        2.32124183e-14-3.35356051e-14j, -4.62323503e-14+4.32622316e-14j,
+       -4.62323503e-14-4.32622316e-14j, -7.01864651e-14+2.91726681e-14j,
+       -7.01864651e-14-2.91726681e-14j,  1.21110800e-13+0.00000000e+00j,
+        4.96062262e-14+5.13433761e-14j,  4.96062262e-14-5.13433761e-14j,
+        8.81324440e-14+2.11371422e-14j,  8.81324440e-14-2.11371422e-14j,
+        9.58350753e-14+0.00000000e+00j, -8.90361879e-14+0.00000000e+00j,
+       -4.51106884e-14+4.89792747e-15j, -4.51106884e-14-4.89792747e-15j,
+       -1.33422818e-14+1.26050113e-14j, -1.33422818e-14-1.26050113e-14j,
+        5.72137360e-14+1.03192222e-14j,  5.72137360e-14-1.03192222e-14j,
+        2.12227619e-14+0.00000000e+00j,  3.34846500e-14+0.00000000e+00j]), matrix([[-0.03090708+0.00000000e+00j,  0.03032894+0.00000000e+00j,
+         -0.05730428+0.00000000e+00j, ..., -0.01948161+1.93959682e-02j,
+          0.03978433+0.00000000e+00j, -0.08645702+0.00000000e+00j],
+        [ 0.06054979+0.00000000e+00j,  0.00525604+0.00000000e+00j,
+          0.01769344+0.00000000e+00j, ..., -0.08150464+1.46149372e-02j,
+         -0.08396049+0.00000000e+00j,  0.01638148+0.00000000e+00j],
+        [ 0.1247238 +0.00000000e+00j, -0.01733926+0.00000000e+00j,
+         -0.05809852+0.00000000e+00j, ..., -0.00438175-1.96211400e-05j,
+         -0.01943263+0.00000000e+00j,  0.04760853+0.00000000e+00j],
+        ...,
+        [ 0.06546098+0.00000000e+00j, -0.00778231+0.00000000e+00j,
+          0.14304672+0.00000000e+00j, ..., -0.0506201 -3.01347329e-03j,
+          0.04420767+0.00000000e+00j,  0.07063319+0.00000000e+00j],
+        [ 0.00599647+0.00000000e+00j,  0.0193637 +0.00000000e+00j,
+         -0.00058612+0.00000000e+00j, ...,  0.02180938+2.24170517e-02j,
+          0.04609502+0.00000000e+00j, -0.12138537+0.00000000e+00j],
+        [ 0.0212984 +0.00000000e+00j,  0.00896294+0.00000000e+00j,
+          0.22123099+0.00000000e+00j, ..., -0.1128695 -3.71212013e-02j,
+         -0.07385415+0.00000000e+00j,  0.07446137+0.00000000e+00j]]))
+[153.48863436]
+[152.77106978]
+[156.43785311]
+#+end_example
+
+* Question 8
+
+Coder la méthode de forward variable sélection. On pourra utiliser la statistique du test de nullité du coefficient (comme vu en cours). Pour l’instant, on ne met pas de critère d’arret sur la méthode. C’est à dire que l’on ajoute une variable à chaque étape jusqu’à retrouver la totalité des variables. Afficher l’ordre de séléction des variables.
