@@ -968,9 +968,26 @@ print("Risque de prediction lasso: ", R_pred_lasso)
 
 #+BEGIN_SRC python :session default :exports both :results output
 coefs = lasso_model.coef_
-selected_cols = [i for i, c in enumerate(coefs) if c]
-print("Le lasso a selectionne les colonnes suivantes", selected_cols)
+lasso_selected_cols = [i for i, c in enumerate(coefs) if c]
+print("Le parametre Lasso optimal trouve est", lasso_model.alpha_)
+print("Le lasso a selectionne les colonnes suivantes", lasso_selected_cols)
 #+END_SRC
 
 #+RESULTS:
-: [13, 58, 123, 129, 167, 174]
+: Le parametre Lasso optimal trouve est 6.631995961001097
+: Le lasso a selectionne les colonnes suivantes [13, 58, 123, 129, 167, 174]
+
+#+BEGIN_SRC python :session default :exports both :results output
+model_ols_lasso = LinearRegression()
+model_ols_lasso.fit(X_train[:,lasso_selected_cols], Y_train)
+Y_pred_ols_lasso = model_ols_lasso.predict(X_test[:,lasso_selected_cols])
+R_pred_ols_lasso = get_R_pred(Y_test, Y_pred_ols_lasso)
+print("Le risque de prediciton de Least-square Lasso est ", R_pred_ols_lasso)
+#+END_SRC
+
+#+RESULTS:
+: Le risque de prediciton de Least-square Lasso est  2806.624540445817
+
+* Question 15
+
+Cette dernière question est un question d’ouverture vers une approche non-linéaire. En utilisant les variables séléctionées par le LASSO (Q13) ou par la méthode forward (Q9), mettre au point une méthode de regression non-linéaire. On apprendra les différents paramètres par validation croisée et l’on donnera la valeur du risque de prédiction calculé sur l’échantillon test. Des performances moindres par rapport à OLS peuvent se produire. Commenter.
