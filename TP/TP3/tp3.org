@@ -109,7 +109,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import KFold
 import scipy.stats as stat
-from sklearn.linear_model import Ridge
+from sklearn.linear_model import Ridge, LassoCV
 #+END_SRC
 
 #+RESULTS:
@@ -936,12 +936,12 @@ path11
 [[file:./img/q11.png]]
 
 #+BEGIN_SRC python :session default :exports both :results output
-print("Le parametre Ridge optimat est:", ridge_param_space[np.argmin(ridge_param_curve)])
+print("Le parametre Ridge optimal est:", ridge_param_space[np.argmin(ridge_param_curve)])
 print("Et son risque est:", min(ridge_param_curve))
 #+END_SRC
 
 #+RESULTS:
-: Le parametre Ridge optimat est: 73.6842105263158
+: Le parametre Ridge optimal est: 73.6842105263158
 : Et son risque est: 3804.707567995887
 
 ** TODO Valeur du risque sur le test                                  :stats:
@@ -950,3 +950,27 @@ print("Et son risque est:", min(ridge_param_curve))
 * Question 13
    
 /A l’aide de la fonction lassoCV de sklearn, choisir le paramètre de régularisation du LASSO. Donner le risque de prédiction associé./
+
+#+BEGIN_SRC python :session default :exports both :results output
+lasso_model = LassoCV(cv=5)
+lasso_model.fit(X_train, [y[0] for y in Y_train.tolist()])
+Y_pred_lasso = lasso_model.predict(X_test)
+R_pred_lasso = get_R_pred(Y_test, Y_pred_lasso)
+print("Risque de prediction lasso: ", R_pred_lasso)
+#+END_SRC
+
+#+RESULTS:
+: R_pred lasso:  5389.933166498974
+
+* Question 14
+  
+/Donner les variables selectionées par le lasso. Combien y-en a t-il ? Appliquer la méthode OLS aux variables sélectionnées. Cette méthode est appelé Least-square LASSO./
+
+#+BEGIN_SRC python :session default :exports both :results output
+coefs = lasso_model.coef_
+selected_cols = [i for i, c in enumerate(coefs) if c]
+print("Le lasso a selectionne les colonnes suivantes", selected_cols)
+#+END_SRC
+
+#+RESULTS:
+: [13, 58, 123, 129, 167, 174]
