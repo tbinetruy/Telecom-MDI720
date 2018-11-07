@@ -107,7 +107,9 @@ import seaborn as sns
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
+from sklearn.model_selection import KFold
 import scipy.stats as stat
+from sklearn.linear_model import Ridge
 #+END_SRC
 
 #+RESULTS:
@@ -557,6 +559,7 @@ plt7c = sns.distplot(res_ols, bins=20, kde=True, ax=axes[1])
 axes[0].set_title("PCA before OLS")
 axes[1].set_title("OLS")
 plt7c.figure.savefig(path7c)
+plt.close()
 
 path7c
 #+END_SRC
@@ -570,7 +573,7 @@ print("R2 for OLS", theta_hat_ols.score(X_test, Y_test))
 
 def get_R_pred(Y_test, Y_pred):
   A = Y_test - Y_pred
-  return A.T@A / len(Y_test)
+  return (A.T@A / len(Y_test))[0,0]
 
 R_pred_pca_ols = get_R_pred(Y_test, Y_pred_pca)
 R_pred_ols = get_R_pred(Y_test, Y_pred_ols)
@@ -582,8 +585,8 @@ print("R_pred OLS:", R_pred_ols)
 #+RESULTS:
 : R2 for PCA before OLS 0.42767779780822845
 : R2 for OLS 0.29118125887098567
-: R_pred PCA before OLS: [[3032.24987626]]
-: R_pred OLS: [[3755.42925269]]
+: R_pred PCA before OLS: 3032.249876257207
+: R_pred OLS: 3755.4292526940235
 
 * Question 8
 
@@ -595,16 +598,18 @@ Coder la méthode de forward variable sélection. On pourra utiliser la statisti
       p_val = (1 - stat.t.cdf(abs(t_stat), deg)) * 2
       return p_val
 
-  def fast_forward_selection(X_train, Y_train, stop):
+  def fast_forward_selection(X_train, Y_train, stop=1000):
     p = X_train.shape[1]
     n = X_train.shape[0]
     res_prev = Y_train
     X = get_X(X_train)
     col_maxs = []
     pvalues = []
+    tstats = []
     for i in range(p + 1):
       col_max = 0
       tstat_max = 0
+      tstats_j = []
 
       for j in range(p + 1):
         if j not in col_maxs:
@@ -615,6 +620,7 @@ Coder la méthode de forward variable sélection. On pourra utiliser la statisti
           res_new = Y_train - Y_pred
           sigma_est = np.sqrt(1 / (n - 1) * (res_new.T@res_new)[0,0])
           tstat = abs(model_j.coef_[0,0]) / (sigma_est * np.sqrt(inv(X_j.T@X_j)[0,0])) 
+          tstats_j.append(tstat)
           if tstat > tstat_max:
             col_max = j
             tstat_max = tstat
@@ -624,27 +630,323 @@ Coder la méthode de forward variable sélection. On pourra utiliser la statisti
         res_prev = res_new
         col_maxs.append(col_max)
         pvalues.append(pvalue)
+        tstats.append(tstats_j)
       else:
-        return [col_maxs, pvalues]
+        return [[c - 1 for c in col_maxs[1:]], pvalues, tstats]
 
-    return [col_maxs, pvalues]
+    return [[c - 1 for c in col_maxs[1:]], pvalues, tstats]
 #+END_SRC
 
 #+RESULTS:
 
+Montrons toutes les variables dans leurs ordre de selection:
+
+
 #+BEGIN_SRC python :session default :exports both :results output
-result = fast_forward_selection(X_train, Y_train, 0.1)
+result = fast_forward_selection(X_train, Y_train)
 print("Ordre de selection des variables:", result[0])
 print("pvalues", result[1])
 #+END_SRC
 
 #+RESULTS:
-: Ordre de selection des variables: [0, 59, 124, 168, 24, 35, 175, 100]
-: pvalues [0.0, 4.594366220800339e-09, 1.9448257604359753e-07, 2.230973249894852e-05, 6.161408358718035e-05, 0.00014767475703725275, 0.00027147789041803705, 0.028673792423168587]
+: Ordre de selection des variables: [58, 123, 167, 23, 34, 174, 99, 94, 7, 133, 103, 27, 115, 112, 17, 92, 121, 128, 162, 148, 197, 146, 79, 33, 110, 22, 45, 18, 19, 60, 182, 168, 43, 84, 86, 207, 158, 160, 44, 177, 53, 85, 81, 4, 138, 49, 159, 95, 11, 143, 188, 13, 116, 50, 136, 129, 183, 88, 147, 55, 142, 76, 29, 20, 178, 131, 208, 3, 47, 62, 9, 108, 195, 153, 35, 106, 149, 28, 72, 179, 16, 166, 75, 100, 169, 102, 5, 150, 161, 97, 191, 90, 175, 105, 61, 185, 109, 119, 114, 78, 74, 209, 65, 120, 186, 24, 172, 41, 91, 2, 77, 93, 176, 104, 130, 82, 152, 134, 59, 46, 139, 83, 66, 187, 101, 157, 87, 189, 141, 140, 192, 117, 193, 127, 54, 113, 51, 164, 171, 165, 36, 71, 107, 200, 180, 202, 68, 198, 89, 31, 14, 155, 201, 184, 80, 137, 132, 69, 64, 70, 42, 48, 154, 56, 145, 111, 206, 124, 32, 122, 126, 125, 37, 199, 63, 190, 39, 135, 15, 38, 204, 73, 25, 12, 118, 170, 196, 156, 163, 98, 30, 194, 6, 21, 144, 1, 96, 40, 57, 26, 8, 151, 0, 67, 203, 205, 173, 10, 181, 52]
+: pvalues [0.0, 4.594366220800339e-09, 1.9448257604359753e-07, 2.230973249894852e-05, 6.161408358718035e-05, 0.00014767475703725275, 0.00027147789041803705, 0.028673792423168587, 0.12881412104997314, 0.1278269728079846, 0.13374056459324057, 0.16018636751074244, 0.16447922689648098, 0.18548944477766804, 0.19094514475727165, 0.1970415080138337, 0.22748495556853632, 0.23235013701080254, 0.24447740950053642, 0.23499322582029247, 0.24655907781277797, 0.254934884275261, 0.28562232434025736, 0.2867501573520397, 0.32642615817698895, 0.30640222844631415, 0.3496595391874835, 0.3447585633155388, 0.35480453323896644, 0.35951816254445124, 0.36632892985411325, 0.3678623469738933, 0.3850419138130743, 0.3748753847656594, 0.39088162247592173, 0.4070870417437815, 0.3909556351054544, 0.41281907854523103, 0.4335281985544379, 0.42600433490514455, 0.43974006259672915, 0.4308599257517116, 0.4411006505638926, 0.4457247203768815, 0.4424944254417247, 0.4487223525397894, 0.451382347101148, 0.4494647591025669, 0.4765182665442764, 0.45395483355318467, 0.4787261443091646, 0.46735243063293597, 0.484702134134646, 0.4686154830082867, 0.48797026440483093, 0.49011005408677644, 0.4932690434793947, 0.5006557147805859, 0.494410995676112, 0.5060351812364063, 0.4949380416650535, 0.5074114644550844, 0.4979072523627903, 0.5151204474571203, 0.5048837441789988, 0.518684698894424, 0.5117049340490782, 0.5194313704895075, 0.5143273774842334, 0.523838098318415, 0.5225381808114893, 0.5391576226667638, 0.5328313942436966, 0.5415101547426029, 0.5421536140153655, 0.5439209583843079, 0.5537698575496424, 0.555899020387904, 0.5545705988558103, 0.5578417728539473, 0.5575076304892579, 0.5733091658299259, 0.5597002162622118, 0.5910155483090307, 0.563668311077075, 0.5922399487610637, 0.5755299083598109, 0.5981667731506417, 0.5757471420978457, 0.6041916521229456, 0.5840990778611321, 0.604199668470732, 0.5873079865235908, 0.6103041720973312, 0.6044907795503986, 0.6358448836048045, 0.6122467017422641, 0.6418057423542853, 0.6170709694231127, 0.6421874684173283, 0.6266097545778022, 0.6507354824339311, 0.6401626864500045, 0.6508581102334605, 0.6710184478919847, 0.6632053643068545, 0.6769824240153235, 0.6826219187914613, 0.6832837990188312, 0.6830598166706001, 0.6847222827594626, 0.6947365430889432, 0.6924565649903431, 0.6998270758634093, 0.6933528498608736, 0.7044080708181752, 0.6952368528251545, 0.7071380160351382, 0.6988685746355174, 0.707548384636, 0.7156600020652149, 0.725455401429584, 0.7169983315903496, 0.7333552742411844, 0.7200655403507232, 0.7357741353156961, 0.7373103847450087, 0.745480395218793, 0.7450898525998331, 0.7477948208902747, 0.7528698950064554, 0.7596236243253149, 0.7639747478741192, 0.7606912590451207, 0.7786107251206495, 0.7673892137837506, 0.7836121862980261, 0.775681279743603, 0.787479005597036, 0.7855141741202467, 0.7923055587064705, 0.8024036558519576, 0.8147691218889528, 0.8076916494640334, 0.8218558188075265, 0.8245881391897385, 0.8299622173323615, 0.8258860922555868, 0.8350532725131803, 0.8296368394903353, 0.8359115587091721, 0.8344502361340973, 0.836243081554398, 0.834578675985878, 0.8409813618958855, 0.8379729322196598, 0.8432689587016631, 0.8551044339671874, 0.8444864837971537, 0.858226107266868, 0.8575045399049008, 0.8610036936716048, 0.8626176594160395, 0.8699317725007567, 0.8662142901139547, 0.8707909740692155, 0.8697367875697521, 0.8726941100241117, 0.8718490765608018, 0.8749421564950342, 0.8780175064107547, 0.8826604432493645, 0.882800718339602, 0.8837731091504246, 0.8912191022865861, 0.8896592881880063, 0.8947560561182872, 0.8938598493885936, 0.9005754249786808, 0.9104908637933602, 0.9107293290546576, 0.9132398226702851, 0.9174356368248544, 0.9167158896870662, 0.9259662900925876, 0.9257383890008875, 0.9276114333587004, 0.9258497006605748, 0.9283073434729254, 0.9327581890628005, 0.9351509339969324, 0.9335848622389666, 0.9358319386497462, 0.9399724680869952, 0.9489620546888073, 0.9482965213556451, 0.959795664268857, 0.9605870095819469, 0.9611790673630538, 0.9645326679963915, 0.9693698619059363, 0.971225917917466, 0.9732152303283541, 0.9763826066801886, 0.9795021618269448, 0.9822139554679992, 0.982700500344724, 0.988665278574083, 0.993175629227931, 0.9908757949871649, 0.994542093289267]
+
+
+* Question 9
+
+/Critère d’arrêt : On décide d’arrêter lorsque la p-valeur dépasse 0.1. Illustrer la méthode en donnant:/
+
+1. /les 3 graphes des statistiques obtenues lors de la sélection de la 1er, 2eme et 3eme variables (en abscisse : l’index des variables, en ordonné : la valeur des stats) ,/
+2. /le graphe des 50 premières p-valeurs (dont chacune est associée à la variable sélectionnée). Sur ce même graphe, on tracera la ligne horizontale d’ordonnée 0.1. Enfin on donnera la liste des variables sélectionnées./
 
 #+BEGIN_SRC python :session default :exports both :results output
-print(result)
+result_trimmed = fast_forward_selection(X_train, Y_train, 0.1)
+print("Variables selectionnees:", result_trimmed[0])
+print("pvalues", result_trimmed[1])
 #+END_SRC
 
 #+RESULTS:
-: [0, 59, 124, 168, 24, 175, 35, 100, 8, 95, 134, 104, 28, 116, 18, 113, 93, 198, 149, 163, 129, 122, 147, 80, 34, 111, 23, 20, 19, 46, 61, 183, 85, 169, 208, 44, 82, 159, 50, 87, 54, 178, 5, 12, 160, 45, 86, 189, 139, 96, 161, 51, 144, 117, 89, 30, 148, 137, 77, 143, 14, 209, 56, 130, 21, 196, 179, 184, 63, 10, 4, 48, 132, 36, 109, 154, 101, 176, 180, 73, 151, 150, 29, 17, 103, 170, 107, 76, 162, 192, 167, 6, 120, 98, 186, 62, 91, 115, 106, 79, 210, 110, 66, 187, 75, 121, 42, 25, 94, 92, 177, 173, 3, 78, 153, 131, 83, 60, 135]
+: Variables selectionnees: [58, 123, 167, 23, 34, 174, 99]
+: pvalues [0.0, 4.594366220800339e-09, 1.9448257604359753e-07, 2.230973249894852e-05, 6.161408358718035e-05, 0.00014767475703725275, 0.00027147789041803705, 0.028673792423168587]
+
+#+BEGIN_SRC python :session default :exports both :results file
+y = result_trimmed[2][0]
+x = list(range(len(y)))
+
+path9a = "./img/q9a.png"
+plt.figure(0)
+plt.scatter(x, y)
+plt.title("T-stat pour selection 1ere variable")
+plt.savefig(path9a)
+plt.close()
+
+path9a
+#+END_SRC
+
+#+RESULTS:
+[[file:./img/q9a.png]]
+[[file:[]]]
+
+
+
+#+BEGIN_SRC python :session default :exports both :results file
+y = result_trimmed[2][1]
+x = list(range(len(y)))
+
+path9b = "./img/q9b.png"
+plt.figure(0)
+plt.scatter(x, y)
+plt.title("T-stat pour selection 2eme variable")
+plt.savefig(path9b)
+plt.close()
+
+path9b
+#+END_SRC
+
+#+RESULTS:
+[[file:./img/q9b.png]]
+
+#+BEGIN_SRC python :session default :exports both :results file
+y = result_trimmed[2][2]
+x = list(range(len(y)))
+
+path9c = "./img/q9c.png"
+plt.figure(0)
+plt.scatter(x, y)
+plt.title("T-stat pour selection 3eme variable")
+plt.savefig(path9c)
+plt.close()
+
+path9c
+#+END_SRC
+
+#+RESULTS:
+[[file:./img/q9c.png]]
+
+#+BEGIN_SRC python :session default :exports both :results file
+y = result[1][:50]
+y_limit = [0.1 for i in y]
+x = range(len(y))
+path9d = "./img/q9d.png"
+plt.figure(0)
+plt.scatter(x, y)
+plt.scatter(x, y_limit)
+plt.title("50 smalest p-values")
+plt.savefig(path9d)
+plt.close()
+path9d
+#+END_SRC
+
+#+RESULTS:
+[[file:./img/q9d.png]]
+
+* Question 10
+
+/Appliquer OLS sur les variables sélectionnées. Donner le risque de prédiction obtenu l’échantillon test et le comparer à ceux de OLS et PCA before OLS./
+
+#+BEGIN_SRC python :session default :exports both :results output
+print("Fast forward variable selection (number of selected columns)", result_trimmed[0])
+X_train_ffs = X_train[:,result_trimmed[0]]
+model_ffs_ols = LinearRegression(fit_intercept=True).fit(X_train_ffs, Y_train)
+Y_pred_ffs = model_ffs_ols.predict(X_test[:,result_trimmed[0]])
+print("R2 for fast forward selection OLS", model_ffs_ols.score(X_test[:,result_trimmed[0]], Y_test))
+print("R_pred for fast forward selection OLS:", get_R_pred(Y_test, Y_pred_ffs))
+#+END_SRC
+
+#+RESULTS:
+: Fast forward variable selection (number of selected columns) [58, 123, 167, 23, 34, 174, 99]
+: R2 for fast forward selection OLS 0.4475310210603155
+: R_pred for fast forward selection OLS: 2927.0644867704714
+
+* Question 11
+  
+/Afin de préparer la validation croisée, séparer l’échantillon train en 4 parties (appelées ”folds”) de façon aléatoire. On affichera les numéros d’échantillon sélectionnés dans chaque fold./
+
+#+BEGIN_SRC python :session default :exports both :results output
+kf = KFold(n_splits=4, random_state=10, shuffle=True)
+_folds = kf.split(X_train)
+folds = []
+
+i = 0
+for train_index, test_index in _folds:
+  #print("TRAIN:", train_index, "\nTEST:", test_index)
+  folds.append([train_index, test_index])
+  i += 1
+print(folds)
+#+END_SRC
+
+#+RESULTS:
+#+begin_example
+[[array([  0,   2,   3,   4,   5,   7,   8,   9,  10,  11,  13,  14,  15,
+        16,  18,  19,  21,  22,  23,  28,  30,  31,  32,  33,  35,  36,
+        37,  38,  39,  40,  41,  42,  44,  45,  46,  48,  49,  50,  51,
+        53,  54,  55,  58,  59,  60,  61,  62,  63,  66,  67,  68,  70,
+        71,  72,  73,  74,  75,  77,  79,  81,  82,  83,  84,  85,  86,
+        89,  90,  91,  93,  94,  95,  96,  98,  99, 101, 103, 104, 106,
+       107, 108, 109, 111, 112, 115, 116, 117, 118, 119, 120, 122, 123,
+       124, 125, 127, 128, 129, 131, 132, 133, 134, 135, 136, 137, 140,
+       141, 143, 144, 145, 149, 150, 153, 154, 155, 156, 157, 158, 159,
+       160, 161, 162, 165, 166, 168, 169, 171, 176, 177, 178, 179, 180,
+       182, 184, 185, 186, 187, 188, 190, 191, 192, 193, 194, 195, 196,
+       198, 199, 200, 201, 203, 204, 206, 207, 208, 209, 210, 212, 213,
+       214, 216, 217, 220, 221, 222, 223, 224, 226, 228, 230, 232, 233,
+       234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246,
+       248, 249, 250, 251, 252, 253, 254, 255, 256, 258, 259, 260, 261,
+       262, 263, 265, 267, 268, 269, 270, 271, 273, 274, 275, 276, 279,
+       281, 283, 284, 285, 286, 287, 288, 289, 290, 291, 292, 293, 294,
+       295, 297, 298, 299, 300, 302, 304, 305, 306, 307, 308, 309, 311,
+       312, 313, 315, 316, 318, 319, 320, 321, 322, 323, 324, 326, 327,
+       328, 329, 330, 331, 332, 333, 337, 339, 341, 342, 344, 346, 347,
+       348, 349, 350, 352]), array([  1,   6,  12,  17,  20,  24,  25,  26,  27,  29,  34,  43,  47,
+        52,  56,  57,  64,  65,  69,  76,  78,  80,  87,  88,  92,  97,
+       100, 102, 105, 110, 113, 114, 121, 126, 130, 138, 139, 142, 146,
+       147, 148, 151, 152, 163, 164, 167, 170, 172, 173, 174, 175, 181,
+       183, 189, 197, 202, 205, 211, 215, 218, 219, 225, 227, 229, 231,
+       247, 257, 264, 266, 272, 277, 278, 280, 282, 296, 301, 303, 310,
+       314, 317, 325, 334, 335, 336, 338, 340, 343, 345, 351])], [array([  1,   2,   3,   4,   6,   7,   8,   9,  11,  12,  13,  14,  15,
+        16,  17,  18,  20,  22,  23,  24,  25,  26,  27,  28,  29,  30,
+        31,  32,  33,  34,  39,  40,  41,  42,  43,  44,  45,  47,  48,
+        51,  52,  53,  54,  56,  57,  62,  64,  65,  66,  67,  69,  71,
+        72,  73,  74,  76,  77,  78,  79,  80,  82,  84,  85,  87,  88,
+        89,  90,  91,  92,  93,  94,  95,  96,  97,  99, 100, 101, 102,
+       103, 105, 107, 109, 110, 112, 113, 114, 115, 116, 117, 118, 120,
+       121, 122, 123, 124, 125, 126, 128, 130, 133, 134, 135, 136, 137,
+       138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150,
+       151, 152, 153, 155, 156, 158, 159, 161, 162, 163, 164, 165, 166,
+       167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179,
+       180, 181, 182, 183, 185, 189, 190, 192, 197, 198, 200, 201, 202,
+       203, 205, 206, 209, 211, 212, 213, 214, 215, 216, 218, 219, 220,
+       221, 224, 225, 226, 227, 228, 229, 231, 232, 233, 234, 235, 237,
+       239, 243, 244, 245, 246, 247, 248, 250, 252, 253, 255, 256, 257,
+       260, 262, 264, 265, 266, 268, 271, 272, 273, 274, 275, 277, 278,
+       279, 280, 281, 282, 283, 284, 286, 287, 288, 289, 290, 292, 294,
+       296, 297, 298, 299, 301, 302, 303, 304, 307, 310, 311, 312, 313,
+       314, 315, 316, 317, 318, 319, 320, 321, 323, 325, 326, 327, 328,
+       329, 330, 331, 334, 335, 336, 337, 338, 339, 340, 343, 344, 345,
+       346, 347, 348, 350, 351]), array([  0,   5,  10,  19,  21,  35,  36,  37,  38,  46,  49,  50,  55,
+        58,  59,  60,  61,  63,  68,  70,  75,  81,  83,  86,  98, 104,
+       106, 108, 111, 119, 127, 129, 131, 132, 154, 157, 160, 184, 186,
+       187, 188, 191, 193, 194, 195, 196, 199, 204, 207, 208, 210, 217,
+       222, 223, 230, 236, 238, 240, 241, 242, 249, 251, 254, 258, 259,
+       261, 263, 267, 269, 270, 276, 285, 291, 293, 295, 300, 305, 306,
+       308, 309, 322, 324, 332, 333, 341, 342, 349, 352])], [array([  0,   1,   3,   4,   5,   6,   8,  10,  11,  12,  13,  14,  15,
+        16,  17,  18,  19,  20,  21,  23,  24,  25,  26,  27,  29,  31,
+        33,  34,  35,  36,  37,  38,  40,  42,  43,  44,  45,  46,  47,
+        49,  50,  51,  52,  54,  55,  56,  57,  58,  59,  60,  61,  62,
+        63,  64,  65,  68,  69,  70,  71,  73,  74,  75,  76,  77,  78,
+        79,  80,  81,  83,  85,  86,  87,  88,  89,  92,  93,  94,  97,
+        98, 100, 102, 104, 105, 106, 108, 110, 111, 112, 113, 114, 118,
+       119, 121, 122, 123, 125, 126, 127, 128, 129, 130, 131, 132, 133,
+       134, 135, 138, 139, 140, 141, 142, 143, 145, 146, 147, 148, 150,
+       151, 152, 154, 156, 157, 158, 160, 163, 164, 165, 167, 170, 172,
+       173, 174, 175, 177, 178, 179, 181, 182, 183, 184, 185, 186, 187,
+       188, 189, 191, 193, 194, 195, 196, 197, 199, 200, 201, 202, 203,
+       204, 205, 207, 208, 210, 211, 215, 216, 217, 218, 219, 220, 221,
+       222, 223, 225, 227, 229, 230, 231, 232, 234, 235, 236, 237, 238,
+       239, 240, 241, 242, 243, 246, 247, 248, 249, 250, 251, 254, 256,
+       257, 258, 259, 261, 263, 264, 265, 266, 267, 268, 269, 270, 271,
+       272, 276, 277, 278, 280, 281, 282, 283, 284, 285, 286, 289, 290,
+       291, 292, 293, 295, 296, 300, 301, 303, 305, 306, 307, 308, 309,
+       310, 313, 314, 317, 318, 320, 321, 322, 324, 325, 327, 329, 331,
+       332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 343, 345,
+       347, 349, 350, 351, 352]), array([  2,   7,   9,  22,  28,  30,  32,  39,  41,  48,  53,  66,  67,
+        72,  82,  84,  90,  91,  95,  96,  99, 101, 103, 107, 109, 115,
+       116, 117, 120, 124, 136, 137, 144, 149, 153, 155, 159, 161, 162,
+       166, 168, 169, 171, 176, 180, 190, 192, 198, 206, 209, 212, 213,
+       214, 224, 226, 228, 233, 244, 245, 252, 253, 255, 260, 262, 273,
+       274, 275, 279, 287, 288, 294, 297, 298, 299, 302, 304, 311, 312,
+       315, 316, 319, 323, 326, 328, 330, 344, 346, 348])], [array([  0,   1,   2,   5,   6,   7,   9,  10,  12,  17,  19,  20,  21,
+        22,  24,  25,  26,  27,  28,  29,  30,  32,  34,  35,  36,  37,
+        38,  39,  41,  43,  46,  47,  48,  49,  50,  52,  53,  55,  56,
+        57,  58,  59,  60,  61,  63,  64,  65,  66,  67,  68,  69,  70,
+        72,  75,  76,  78,  80,  81,  82,  83,  84,  86,  87,  88,  90,
+        91,  92,  95,  96,  97,  98,  99, 100, 101, 102, 103, 104, 105,
+       106, 107, 108, 109, 110, 111, 113, 114, 115, 116, 117, 119, 120,
+       121, 124, 126, 127, 129, 130, 131, 132, 136, 137, 138, 139, 142,
+       144, 146, 147, 148, 149, 151, 152, 153, 154, 155, 157, 159, 160,
+       161, 162, 163, 164, 166, 167, 168, 169, 170, 171, 172, 173, 174,
+       175, 176, 180, 181, 183, 184, 186, 187, 188, 189, 190, 191, 192,
+       193, 194, 195, 196, 197, 198, 199, 202, 204, 205, 206, 207, 208,
+       209, 210, 211, 212, 213, 214, 215, 217, 218, 219, 222, 223, 224,
+       225, 226, 227, 228, 229, 230, 231, 233, 236, 238, 240, 241, 242,
+       244, 245, 247, 249, 251, 252, 253, 254, 255, 257, 258, 259, 260,
+       261, 262, 263, 264, 266, 267, 269, 270, 272, 273, 274, 275, 276,
+       277, 278, 279, 280, 282, 285, 287, 288, 291, 293, 294, 295, 296,
+       297, 298, 299, 300, 301, 302, 303, 304, 305, 306, 308, 309, 310,
+       311, 312, 314, 315, 316, 317, 319, 322, 323, 324, 325, 326, 328,
+       330, 332, 333, 334, 335, 336, 338, 340, 341, 342, 343, 344, 345,
+       346, 348, 349, 351, 352]), array([  3,   4,   8,  11,  13,  14,  15,  16,  18,  23,  31,  33,  40,
+        42,  44,  45,  51,  54,  62,  71,  73,  74,  77,  79,  85,  89,
+        93,  94, 112, 118, 122, 123, 125, 128, 133, 134, 135, 140, 141,
+       143, 145, 150, 156, 158, 165, 177, 178, 179, 182, 185, 200, 201,
+       203, 216, 220, 221, 232, 234, 235, 237, 239, 243, 246, 248, 250,
+       256, 265, 268, 271, 281, 283, 284, 286, 289, 290, 292, 307, 313,
+       318, 320, 321, 327, 329, 331, 337, 339, 347, 350])]]
+#+end_example
+
+* Question 12
+
+/Appliquer la méthode de la régression ridge. Pour le choix du paramètre de régularisation, on fera une validation croisée sur les ”folds” définies lors de la question précédente. A tour de rôle chacune des ”folds” servira pour calculer le risque de prédiction alors que les autres seront utilisées pour estimer le modèle. On moyennera ensuite les 4 risques de prédictions. On donnera la courbe du risque de validation croisée en fonction du paramètre de régularisation (on veillera à bien choisir l’espace de définition pour le graphe). Donner le paramètre de régularisation optimal et la valeur du risque sur le test./
+
+
+#+BEGIN_SRC python :session default :exports both :results output
+ridge_param_space = np.linspace(0, 100, 20)
+def fit_ridge(X, Y, folds):
+  R_pred_bars = []
+  for alpha in ridge_param_space:
+    R_preds = []
+    for i_train, i_test in folds:
+      clf = Ridge(alpha=alpha)
+      clf.fit(X[i_train], Y[i_train])
+      Y_pred = clf.predict(X[i_test])
+      R_pred = get_R_pred(Y[i_test], Y_pred)
+      R_preds.append(R_pred)
+
+    R_pred_bar = np.mean(R_preds)
+    R_pred_bars.append(R_pred_bar)
+  return R_pred_bars
+#+END_SRC
+
+#+RESULTS:
+
+#+BEGIN_SRC python :session default :exports both :results output
+ridge_param_curve = fit_ridge(X_train, Y_train, folds)
+print(ridge_param_curve)
+#+END_SRC
+
+#+RESULTS:
+: [19725.057068212333, 3868.2429103202953, 3857.305752874005, 3847.401814139806, 3838.6896702631398, 3831.190810428525, 3824.84080763573, 3819.547978446685, 3815.215766700655, 3811.7513298983868, 3809.0687241961705, 3807.0898265696833, 3805.744275948606, 3804.968997146406, 3804.707567995887, 3804.9095525751727, 3805.529857829777, 3806.528138582898, 3807.8682597650263, 3809.517816662376]
+
+#+BEGIN_SRC python :session default :exports both :results file
+path11 = "./img/q11.png"
+y = ridge_param_curve[:]
+print(ridge_param_space)
+
+ridge_param_space = list(np.linspace(0, 100, 20))
+plt.figure(0)
+plt.scatter(ridge_param_space[1:], y[1:])
+plt.title("Ridge parameter curve")
+plt.savefig(path11)
+plt.close()
+path11
+#+END_SRC
+
+#+RESULTS:
+[[file:./img/q11.png]]
+
+#+BEGIN_SRC python :session default :exports both :results output
+print("Le parametre Ridge optimat est:", ridge_param_space[np.argmin(ridge_param_curve)])
+print("Et son risque est:", min(ridge_param_curve))
+#+END_SRC
+
+#+RESULTS:
+: Le parametre Ridge optimat est: 73.6842105263158
+: Et son risque est: 3804.707567995887
+
+** TODO Valeur du risque sur le test                                  :stats:
+   SCHEDULED: <2018-11-08 Thu>
+
+* Question 13
+   
+/A l’aide de la fonction lassoCV de sklearn, choisir le paramètre de régularisation du LASSO. Donner le risque de prédiction associé./
