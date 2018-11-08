@@ -89,30 +89,26 @@ def get_students_quantile(deg, level):
 #+RESULTS:
 
 
-* Question 1
-  
-/Importer la base de données ~data_dm3.csv~ disponible depuis le lien https://bitbucket.org/portierf/shared_files/downloads/data_dm3.csv. La dernière colonne est la variable à expliquer. Les autres colonnes sont les variables explicatives. Préciser le nombre de variables explicatives et le nombre d’observations./
+* Imports
   
 #+BEGIN_SRC python :exports both :session default :tangle yes
+import math
+import random
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import math
-import scipy.stats
-from numpy.linalg import inv, eig
-from scipy import stats
-import statsmodels.api as sm
-import random
 import seaborn as sns
-from sklearn.decomposition import PCA
-from sklearn.linear_model import LinearRegression
+from scipy import stats
+from scipy import stat
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import KFold
-import scipy.stats as stat
-from sklearn.linear_model import Ridge, LassoCV
+from sklearn.linear_model import Ridge, LassoCV, LinearRegression
+from numpy.linalg import inv
 #+END_SRC
 
 #+RESULTS:
+
+* Chargement des données
 
 #+BEGIN_SRC python :session default :exports both :tangle yes
 def import_data():
@@ -124,22 +120,17 @@ df.head()
 #+END_SRC
 
 #+RESULTS:
-:         0         1         2         3         4         5         6    ...         204       205       206       207       208       209    210
-: 0 -1.298173 -0.162249  1.223379  1.355554  1.080171  0.634979  0.298741  ...   -0.436399  0.279299 -1.416020 -2.332363  0.215096 -0.693319  151.0
-: 1  0.166951 -0.338060 -0.618867  0.759366  1.134281 -0.536844 -0.075120  ...    1.119430  0.225958 -0.822288  0.382838 -0.718829 -0.188993   75.0
-: 2 -0.416177 -0.205659 -1.282226  1.675500  1.523746  0.192029 -0.235840  ...   -2.579347  0.139267 -1.901196  0.048210  0.220205  0.471588  141.0
-: 3  0.867184 -0.398667  0.093501  0.025971  1.852099  0.789774  0.801775  ...   -0.884172  0.723819  1.316367  0.088218  0.619496  1.061662  206.0
-: 4  1.193282 -0.936980 -0.725039  0.766078  0.223489 -1.584622  1.146866  ...   -0.642504  2.040010 -1.703110 -1.901502  1.778811 -0.489853  135.0
+:         0         1         2         3         4         5    ...         205       206       207       208       209    210
+: 0 -1.298173 -0.162249  1.223379  1.355554  1.080171  0.634979  ...    0.279299 -1.416020 -2.332363  0.215096 -0.693319  151.0
+: 1  0.166951 -0.338060 -0.618867  0.759366  1.134281 -0.536844  ...    0.225958 -0.822288  0.382838 -0.718829 -0.188993   75.0
+: 2 -0.416177 -0.205659 -1.282226  1.675500  1.523746  0.192029  ...    0.139267 -1.901196  0.048210  0.220205  0.471588  141.0
+: 3  0.867184 -0.398667  0.093501  0.025971  1.852099  0.789774  ...    0.723819  1.316367  0.088218  0.619496  1.061662  206.0
+: 4  1.193282 -0.936980 -0.725039  0.766078  0.223489 -1.584622  ...    2.040010 -1.703110 -1.901502  1.778811 -0.489853  135.0
 : 
 : [5 rows x 211 columns]
 
 
-#+BEGIN_SRC python :session default :exports both :tangle yes
-df.shape[1]
-#+END_SRC
-
-#+RESULTS:
-: 211
+Séparons maintenant le variable à expliquer, c'est a dire la dernière colonne de notre dataframe. Les variables ~dfX~ et ~dfY~ seront les dataframes contenant la matrice de design et la variables à expliquer:
 
 #+BEGIN_SRC python :session default : exports both :tangle yes
 num_df_cols = df.shape[1] - 1
@@ -170,6 +161,11 @@ dfY.head()
 : 4    135.0
 : Name: 210, dtype: float64
 
+* Question 1
+  
+/Importer la base de données ~data_dm3.csv~ disponible depuis le lien https://bitbucket.org/portierf/shared_files/downloads/data_dm3.csv. La dernière colonne est la variable à expliquer. Les autres colonnes sont les variables explicatives. Préciser le nombre de variables explicatives et le nombre d’observations./
+
+
 #+BEGIN_SRC python :session default :results output :exports both :tangle yes
 print("Nombre de variable explicatives:", dfX.shape[1])
 print("Numbre d'observations", dfX.shape[0])
@@ -182,6 +178,8 @@ print("Numbre d'observations", dfX.shape[0])
 * Question 2
   
 /Les variables explicatives sont-elles centrées ? Normalisées ? Qu’en est-il de la variable à expliquer ? Tracer un scatter plot de la base de données avec 4 covariables prises au hasard et la variable à expliquer (un scatterplot regroupe les graphes de chacune des variables en fonction de chacune des autres). Commenter les graphiques obtenus./
+
+Analysons dans un premier temps les moyennes et variances des colonnes de ~dfX~ et ~dfY~:
 
 #+BEGIN_SRC python :session default :exports both :tangle yes
 dfX.mean(axis=0)
@@ -323,22 +321,28 @@ dfX.var(axis=0)
 Length: 210, dtype: float64
 #+end_example
 
-#+BEGIN_SRC python :session default :exports both :tangle yes
-dfY.mean(axis=0)
+Nous remarquons que les colonnes de la matrice de design sont centrées et de variance proche de 1 à moins du tiers de pourcent près. En effet, la variance est égale à 1.002268 et est constante d'une colonne à l'autre.
+
+Ci-dessous, nous analysons que notre variable explicative n'est ni centrée, ni normalisé:
+
+#+BEGIN_SRC python :session default :exports both :tangle yes :results output
+print("La variable explicative à une moyenne de :", dfY.mean(axis=0))
 #+END_SRC
 
 #+RESULTS:
-: 152.13348416289594
+: La variable explicative à une moyenne de : 152.13348416289594
 
-#+BEGIN_SRC python :session default :exports both :tangle yes
-dfY.var(axis=0)
+#+BEGIN_SRC python :session default :exports both :tangle yes :results output
+print("La variable explicative à une variance de :", dfY.var(axis=0))
 #+END_SRC
 
 #+RESULTS:
-: 5943.331347923785
+: La variable explicative à une variance de : 5943.331347923785
 
+Sélectionnons 4 colonnes au hasard à l'aide de ~random.randint~ et générons une "scatter matrix":
 
 #+BEGIN_SRC python :session default :exports both :results file :tangle yes
+# Helper to generate
 def rand():
     return random.randint(0, dfX.shape[1] - 1)
 
@@ -393,9 +397,25 @@ La matrice des correlations est définie de la manière suivante:
 
 $$Cor(X) = (X - \mathbb{E}(X))^T(X - \mathbb{E}(X))$$
 
-Mais nous avons vu dans la question précedente que l'espérence de $X$ est nulle, donc notre matrice des correlations est égale à la matrice de Gram:
+Mais nous avons vu dans la question précédente que l'espérance de $X$ est nulle, donc notre matrice des correlations est égale à la matrice de Gram:
 
-$$Cor(X) = X^TX$$
+$$Cor(X) = X^TX$$.
+
+Nous allons trouver les vecteurs propres de $X^TX$ à l'aide de la SVD. En effet, nous savons que pour une matrice $M \in \mathbb{R}^{n \bigtimes p}$
+
+$$
+M = USV^T
+$$
+
+Avec une matrice orthogonale $U \in \mathbb{R}^{n \bigtimes n}$, un matrice diagonale $S \in \mathbb{R}^{n \bigtimes p}$, et une matrice orthogonale $V \in \mathbb{R}^{p \bigtimes p}$, donc:
+
+$$
+X^TX = (USV^T)^T(USV^T)
+= VS^TU^TUSV^T
+= VS^TSV^T
+$$
+
+Ce qui veut bien dire qu'en prenant la matrice $V$ de la SVD de $X$, nous obtenons les vecteurs propres de notre matrice de corrélation $X^TX$:
 
 #+BEGIN_SRC python :session default :exports both :results file :tangle yes
 u, s, vh = np.linalg.svd(X_train)
@@ -412,16 +432,20 @@ path3
 #+RESULTS:
 [[file:./img/q3.png]]
 
+Nous voyons bien sur le graphique ci dessus que lorsque nous somme dans la base des vecteurs propres de $X^TX$, seulement 60 des valeurs propres de la matrice de corrélation ne sont pas nulles. C'est à dire que seulement 60 des colonnes de $X$ contiennent des informations affectées par la variations d'autre(s) colonne(s). Les autres colonnes ayant aucune influence sur nos 60 variables, nous pouvons donc les retirer de notre dataframe pour alléger les calculs suivants.
+
 * Question 5
   
 /Suivant les observations de la question (Q4), appliquer la méthode de "PCA before OLS" qui consiste à appliquer OLS avec $Y$ et $X_{\mbox{train}}V_{1:60}$, où $V_{1:60}$ contient les vecteurs propres (associé aux 60 plus grandes valeurs propres) de la matrice de covariance. Faire une régression linéaire (avec intercept), puis tracer les valeurs des coefficients (hors intercept). Sur un autre graphique, faire de même avec la méthode des moindres carrés classique./
 
+** PCA before OLS
 
 #+BEGIN_SRC python :session default :exports both :results output :tangle yes
 u, s, vh = np.linalg.svd(X_train)
 Xpca = X_train@vh.T[:,0:60]
-print(Xpca.shape)
+print("La taille de notre matrice de design après PCA est :", Xpca.shape)
 theta_hat_pca_before_ols = LinearRegression(fit_intercept=True).fit(Xpca, Y_train)
+print("Nos coefficients:")
 print(theta_hat_pca_before_ols.coef_)
 
 #+END_SRC
@@ -429,28 +453,22 @@ print(theta_hat_pca_before_ols.coef_)
 #+RESULTS:
 #+begin_example
 (353, 60)
-Traceback (most recent call last):
-  File "<stdin>", line 1, in <module>
-  File "/tmp/babel-OQtQvi/python-9Bd97E", line 4, in <module>
-    theta_hat_pca_before_ols = LinearRegression(fit_intercept=True).fit(Xpca, Y_train)
-  File "/home/thomas/.local/lib/python3.7/site-packages/sklearn/linear_model/base.py", line 458, in fit
-    y_numeric=True, multi_output=True)
-  File "/home/thomas/.local/lib/python3.7/site-packages/sklearn/utils/validation.py", line 757, in check_X_y
-    check_consistent_length(X, y)
-  File "/home/thomas/.local/lib/python3.7/site-packages/sklearn/utils/validation.py", line 230, in check_consistent_length
-    " samples: %r" % [int(l) for l in lengths])
-ValueError: Found input variables with inconsistent numbers of samples: [353, 354]
+[[-1.22330969e+01  2.17054945e+00 -2.03720914e+00 -5.40211814e+00
+   2.35586394e+00 -7.76571081e-01  4.05826712e+00 -2.81099700e-01
+  -1.77329602e+00 -3.44791089e+00  1.36056670e+00  5.43933482e-01
+   1.35972761e+00  5.93832061e-01 -1.23802573e+00  4.24963156e+00
+  -1.13911998e+00  5.89940047e-01  7.46534497e-01 -4.30535424e+00
+  -6.60808712e-01  2.04583307e-01  1.03349261e-01  4.92049978e+00
+   8.65639317e-01  2.38793662e+00  7.19228395e-04  4.24084737e-01
+   2.69685873e+00 -2.89653858e+00  1.36145833e+00  2.11745233e+00
+   2.49143991e+00 -2.27657513e+00  1.51113345e+00 -2.43503100e+00
+  -1.34352655e+00 -2.24311197e+00  3.47332649e+00  3.19838747e+00
+   1.19314296e-01 -3.40346223e+00  7.54369729e+00  3.36824649e+00
+  -4.41704153e+00  5.12537594e+00 -2.51723512e+00 -6.67013764e+00
+  -7.24569531e-01 -7.13199177e+00  7.79086660e+00 -9.72432611e+00
+  -1.61102779e+01  2.24268297e+01 -3.06928158e-01  1.11193253e+01
+  -7.12279743e+00  4.74128685e-02 -1.25876569e+01 -6.26735917e+01]]
 #+end_example
-
-#+BEGIN_SRC python :session default :exports both :results output :tangle yes
-theta_hat_ols = LinearRegression(fit_intercept=True).fit(X_train, Y_train)
-print(theta_hat_ols.intercept_)
-print(X_train.shape)
-#+END_SRC
-
-#+RESULTS:
-: [153.48863436]
-: (354, 210)
 
 
 #+BEGIN_SRC python :session default :exports both :results file :tangle yes
@@ -465,6 +483,18 @@ path5
 #+RESULTS:
 [[file:./q5b.png]]
 
+** OLS
+
+#+BEGIN_SRC python :session default :exports both :results output :tangle yes
+theta_hat_ols = LinearRegression(fit_intercept=True).fit(X_train, Y_train)
+print(theta_hat_ols.intercept_)
+print(X_train.shape)
+#+END_SRC
+
+#+RESULTS:
+: [153.48863436]
+: (354, 210)
+
 
 #+BEGIN_SRC python :session default :exports both :results file :tangle yes
 plt.figure(0)
@@ -477,6 +507,8 @@ path4
 
 #+RESULTS:
 [[file:./q5a.png]]
+
+Nous remarquons quand sans réaliser de PCA avant OLS, nous obtenons des coefficients énormes, de l'ordre de $10^{15}$ pour les plus gros. Alors qu'avec un PCA before OLS, nos plus grands coefficients sont de l'ordre de 20-30.
 
 * Question 6
   
@@ -491,6 +523,10 @@ print("Intercept PCA before OLS:", theta_hat_pca_before_ols.intercept_)
 : Intercept OLS: [153.48863436]
 : Intercept PCA before OLS: [152.77106978]
 
+Les deux intercepts ne sont donc pas égaux. Nous remarquons que l'intercept avec PCA before OLS est moins proche de la moyenne des $Y_{\mbox{train}}$ que ne l'est l'intercept pour OLS.
+
+Centrons / réduisons maintenant $X_{\mbox{train}}$ et réalisons un PCA before OLS pour comparer la valeur de l'intercept de notre modèle avec la moyenne de $Y_{\mbox{train}}$.
+
 #+BEGIN_SRC python :session default :exports both :results output :tangle yes
   Xpca_c = Xpca-Xpca.mean(axis=0)
   Xpca_n = Xpca_c/np.sqrt(Xpca.var(axis=0))
@@ -504,21 +540,22 @@ print("Intercept PCA before OLS:", theta_hat_pca_before_ols.intercept_)
 : Intercept for OLS after normalizationn of PCA: [156.43785311]
 : Y_train mean: 156.43785310734464
 
+Nous trouvons donc la même valeur (à 7 décimales près) entre notre intercept et la moyenne des $Y_{\mbox{train}}$.
+
 * Question 7
 
-Pour les 2 méthodes (OLS et PCA before OLS) : Tracer les résidus de la prédiction sur l’échantillon test. Tracer leur densité (on pourra par exemple utiliser un histogramme). Calculer le coefficient de détermination sur l’échantillon test. Calculer le risque de prédiction sur l’échantillon test.
-
-#+BEGIN_SRC python :session default :exports both :results output :tangle yes
-Y_pred_pca = theta_hat_pca_before_ols.predict(X_test@vh.T[:,:60])
-res_pca = Y_test - Y_pred_pca
-#+END_SRC
-
-#+RESULTS:
+/Pour les 2 méthodes (OLS et PCA before OLS) : Tracer les résidus de la prédiction sur l’échantillon test. Tracer leur densité (on pourra par exemple utiliser un histogramme). Calculer le coefficient de détermination sur l’échantillon test. Calculer le risque de prédiction sur l’échantillon test./
 
 #+BEGIN_SRC python :session default :exports both :results file :tangle yes
+Y_pred_pca = theta_hat_pca_before_ols.predict(X_test@vh.T[:,:60])
+res_pca = Y_test - Y_pred_pca
+
 path7a = "./img/q7a.png"
 plt.figure(0)
 plt.scatter(range(len(res_pca)), [r[0] for r in res_pca])
+plt.title("Résidus PCA before OLS sur l'échantillon test")
+plt.ylabel("Résidus")
+plt.xlabel("Observations")
 plt.savefig(path7a)
 plt.close()
 
@@ -528,17 +565,16 @@ path7a
 #+RESULTS:
 [[file:./img/q7a.png]]
 
-#+BEGIN_SRC python :session default :exports both :results output :tangle yes
+#+BEGIN_SRC python :session default :exports both :results file :tangle yes
 Y_pred_ols = theta_hat_ols.predict(X_test)
 res_ols = Y_test - Y_pred_ols
-#+END_SRC
 
-#+RESULTS:
-
-#+BEGIN_SRC python :session default :exports both :results file :tangle yes
 path7b = "./img/q7b.png"
 plt.figure(0)
 plt.scatter(range(len(res_ols)), [r[0] for r in res_ols])
+plt.title("Résidus OLS sur l'échantillon de test")
+plt.ylabel("Résidus")
+plt.xlabel("Observations")
 plt.savefig(path7b)
 plt.close()
 
@@ -547,6 +583,8 @@ path7b
 
 #+RESULTS:
 [[file:./img/q7b.png]]
+
+Utilisons la librairie Seasborn à nouveau pour réaliser un histogramme de nos résidus pour OLS et PCA before OLS:
 
 #+BEGIN_SRC python :session default :exports both :results file :tangle yes
 f, axes = plt.subplots(1, 2)
@@ -566,6 +604,12 @@ path7c
 
 #+RESULTS:
 [[file:./img/q7c.png]]
+
+Enfin, nous calculons le coefficient de détermination sur l'échantillon de test à l'aide de scikit-learn ainsi que le risque de prédiction normalisée de la manière suivante:
+
+$$
+R_{\mbox{pred}} = \frac{||Y_{\mbox{pred}} - Y_{\mbox{test}}||^2}{n}
+$$
 
 #+BEGIN_SRC python :session default :exports both :results output :tangle yes
 print("R2 for PCA before OLS", theta_hat_pca_before_ols.score(X_test@vh.T[:,:60], Y_test))
@@ -590,56 +634,56 @@ print("R_pred OLS:", R_pred_ols)
 
 * Question 8
 
-Coder la méthode de forward variable sélection. On pourra utiliser la statistique du test de nullité du coefficient (comme vu en cours). Pour l’instant, on ne met pas de critère d’arret sur la méthode. C’est à dire que l’on ajoute une variable à chaque étape jusqu’à retrouver la totalité des variables. Afficher l’ordre de séléction des variables.
+Coder la méthode de forward variable sélection. On pourra utiliser la statistique du test de nullité du coefficient (comme vu en cours). Pour l’instant, on ne met pas de critère d’arrêt sur la méthode. C’est à dire que l’on ajoute une variable à chaque étape jusqu’à retrouver la totalité des variables. Afficher l’ordre de sélection des variables.
 
 #+BEGIN_SRC python :session default :exports both :results output :tangle yes
-  def get_p_value(t_stat, deg):
-      # compute the p-value if t_stat follows a Student of degree deg
-      p_val = (1 - stat.t.cdf(abs(t_stat), deg)) * 2
-      return p_val
+def get_p_value(t_stat, deg):
+    # compute the p-value if t_stat follows a Student of degree deg
+    p_val = (1 - stats.t.cdf(abs(t_stat), deg)) * 2
+    return p_val
 
-  def fast_forward_selection(X_train, Y_train, stop=1000):
-    p = X_train.shape[1]
-    n = X_train.shape[0]
-    res_prev = Y_train
-    X = get_X(X_train)
-    col_maxs = []
-    pvalues = []
-    tstats = []
-    for i in range(p + 1):
-      col_max = 0
-      tstat_max = 0
-      tstats_j = []
+def fast_forward_selection(X_train, Y_train, stop=1000):
+  p = X_train.shape[1]
+  n = X_train.shape[0]
+  res_prev = Y_train
+  X = get_X(X_train)
+  col_maxs = []
+  pvalues = []
+  tstats = []
+  for i in range(p + 1):
+    col_max = 0
+    tstat_max = 0
+    tstats_j = []
 
-      for j in range(p + 1):
-        if j not in col_maxs:
-          X_j = X[:, j]
-          model_j = LinearRegression(fit_intercept=False).fit(X_j, res_prev)
-          X_j_bar = get_mean(X_j)
-          Y_pred = model_j.predict(X_j)
-          res_new = Y_train - Y_pred
-          sigma_est = np.sqrt(1 / (n - 1) * (res_new.T@res_new)[0,0])
-          tstat = abs(model_j.coef_[0,0]) / (sigma_est * np.sqrt(inv(X_j.T@X_j)[0,0])) 
-          tstats_j.append(tstat)
-          if tstat > tstat_max:
-            col_max = j
-            tstat_max = tstat
+    for j in range(p + 1):
+      if j not in col_maxs:
+        X_j = X[:, j]
+        model_j = LinearRegression(fit_intercept=False).fit(X_j, res_prev)
+        X_j_bar = get_mean(X_j)
+        Y_pred = model_j.predict(X_j)
+        res_new = Y_train - Y_pred
+        sigma_est = np.sqrt(1 / (n - 1) * (res_new.T@res_new)[0,0])
+        tstat = abs(model_j.coef_[0,0]) / (sigma_est * np.sqrt(inv(X_j.T@X_j)[0,0])) 
+        tstats_j.append(tstat)
+        if tstat > tstat_max:
+          col_max = j
+          tstat_max = tstat
 
-      pvalue = get_p_value(tstat_max, n - 1)
-      if pvalue < stop:
-        res_prev = res_new
-        col_maxs.append(col_max)
-        pvalues.append(pvalue)
-        tstats.append(tstats_j)
-      else:
-        return [[c - 1 for c in col_maxs[1:]], pvalues, tstats]
+    pvalue = get_p_value(tstat_max, n - 1)
+    if pvalue < stop:
+      res_prev = res_new
+      col_maxs.append(col_max)
+      pvalues.append(pvalue)
+      tstats.append(tstats_j)
+    else:
+      return [[c - 1 for c in col_maxs[1:]], pvalues, tstats]
 
-    return [[c - 1 for c in col_maxs[1:]], pvalues, tstats]
+  return [[c - 1 for c in col_maxs[1:]], pvalues, tstats]
 #+END_SRC
 
 #+RESULTS:
 
-Montrons toutes les variables dans leurs ordre de selection:
+Montrons toutes les variables dans leur ordre de sélection:
 
 
 #+BEGIN_SRC python :session default :exports both :results output :tangle yes
@@ -670,6 +714,8 @@ print("pvalues", result_trimmed[1])
 : Variables selectionnees: [58, 123, 167, 23, 34, 174, 99]
 : pvalues [0.0, 4.594366220800339e-09, 1.9448257604359753e-07, 2.230973249894852e-05, 6.161408358718035e-05, 0.00014767475703725275, 0.00027147789041803705, 0.028673792423168587]
 
+** Première variable
+
 #+BEGIN_SRC python :session default :exports both :results file :tangle yes
 y = result_trimmed[2][0]
 x = list(range(len(y)))
@@ -678,6 +724,8 @@ path9a = "./img/q9a.png"
 plt.figure(0)
 plt.scatter(x, y)
 plt.title("T-stat pour selection 1ere variable")
+plt.xlabel("Coefficient")
+plt.ylabel("t-Stat")
 plt.savefig(path9a)
 plt.close()
 
@@ -686,9 +734,9 @@ path9a
 
 #+RESULTS:
 [[file:./img/q9a.png]]
-[[file:[]]]
 
 
+** Seconde variable
 
 #+BEGIN_SRC python :session default :exports both :results file :tangle yes
 y = result_trimmed[2][1]
@@ -698,6 +746,8 @@ path9b = "./img/q9b.png"
 plt.figure(0)
 plt.scatter(x, y)
 plt.title("T-stat pour selection 2eme variable")
+plt.xlabel("Coefficient")
+plt.ylabel("t-Stat")
 plt.savefig(path9b)
 plt.close()
 
@@ -707,6 +757,8 @@ path9b
 #+RESULTS:
 [[file:./img/q9b.png]]
 
+** Troisième variable
+
 #+BEGIN_SRC python :session default :exports both :results file :tangle yes
 y = result_trimmed[2][2]
 x = list(range(len(y)))
@@ -715,6 +767,8 @@ path9c = "./img/q9c.png"
 plt.figure(0)
 plt.scatter(x, y)
 plt.title("T-stat pour selection 3eme variable")
+plt.xlabel("Coefficient")
+plt.ylabel("t-Stat")
 plt.savefig(path9c)
 plt.close()
 
@@ -732,7 +786,9 @@ path9d = "./img/q9d.png"
 plt.figure(0)
 plt.scatter(x, y)
 plt.scatter(x, y_limit)
-plt.title("50 smalest p-values")
+plt.title("50 plus petites p-values")
+plt.xlabel("Coefficient")
+plt.ylabel("p-value")
 plt.savefig(path9d)
 plt.close()
 path9d
@@ -751,13 +807,20 @@ X_train_ffs = X_train[:,result_trimmed[0]]
 model_ffs_ols = LinearRegression(fit_intercept=True).fit(X_train_ffs, Y_train)
 Y_pred_ffs = model_ffs_ols.predict(X_test[:,result_trimmed[0]])
 print("R2 for fast forward selection OLS", model_ffs_ols.score(X_test[:,result_trimmed[0]], Y_test))
-print("R_pred for fast forward selection OLS:", get_R_pred(Y_test, Y_pred_ffs))
+R_pred_ffs = get_R_pred(Y_test, Y_pred_ffs)
+print("R_pred for fast forward selection OLS:", R_pred_ffs)
+print("R_pred_fastForward < R_pred_ols ?", R_pred_ffs < R_pred_ols)
+print("R_pred_fastForward < R_pred_pca_ols ?", R_pred_ffs < R_pred_pca_ols)
 #+END_SRC
 
 #+RESULTS:
 : Fast forward variable selection (number of selected columns) [58, 123, 167, 23, 34, 174, 99]
 : R2 for fast forward selection OLS 0.4475310210603155
 : R_pred for fast forward selection OLS: 2927.0644867704714
+: R_pred_fastForward < R_pred_ols ? True
+: R_pred_fastForward < R_pred_pca_ols ? True
+
+Nous trouvons donc un risque de prédiction plus petit avec le modèle Ridge qu'avec OLS ou PCA before OLS.
 
 * Question 11
   
@@ -770,119 +833,107 @@ folds = []
 
 i = 0
 for train_index, test_index in _folds:
-  #print("TRAIN:", train_index, "\nTEST:", test_index)
+  print("\n\nTRAIN", i, ":\n", train_index, "\nTEST", i, " :\n", test_index)
   folds.append([train_index, test_index])
   i += 1
-print(folds)
 #+END_SRC
 
 #+RESULTS:
 #+begin_example
-[[array([  0,   2,   3,   4,   5,   7,   8,   9,  10,  11,  13,  14,  15,
-        16,  18,  19,  21,  22,  23,  28,  30,  31,  32,  33,  35,  36,
-        37,  38,  39,  40,  41,  42,  44,  45,  46,  48,  49,  50,  51,
-        53,  54,  55,  58,  59,  60,  61,  62,  63,  66,  67,  68,  70,
-        71,  72,  73,  74,  75,  77,  79,  81,  82,  83,  84,  85,  86,
-        89,  90,  91,  93,  94,  95,  96,  98,  99, 101, 103, 104, 106,
-       107, 108, 109, 111, 112, 115, 116, 117, 118, 119, 120, 122, 123,
-       124, 125, 127, 128, 129, 131, 132, 133, 134, 135, 136, 137, 140,
-       141, 143, 144, 145, 149, 150, 153, 154, 155, 156, 157, 158, 159,
-       160, 161, 162, 165, 166, 168, 169, 171, 176, 177, 178, 179, 180,
-       182, 184, 185, 186, 187, 188, 190, 191, 192, 193, 194, 195, 196,
-       198, 199, 200, 201, 203, 204, 206, 207, 208, 209, 210, 212, 213,
-       214, 216, 217, 220, 221, 222, 223, 224, 226, 228, 230, 232, 233,
-       234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246,
-       248, 249, 250, 251, 252, 253, 254, 255, 256, 258, 259, 260, 261,
-       262, 263, 265, 267, 268, 269, 270, 271, 273, 274, 275, 276, 279,
-       281, 283, 284, 285, 286, 287, 288, 289, 290, 291, 292, 293, 294,
-       295, 297, 298, 299, 300, 302, 304, 305, 306, 307, 308, 309, 311,
-       312, 313, 315, 316, 318, 319, 320, 321, 322, 323, 324, 326, 327,
-       328, 329, 330, 331, 332, 333, 337, 339, 341, 342, 344, 346, 347,
-       348, 349, 350, 352]), array([  1,   6,  12,  17,  20,  24,  25,  26,  27,  29,  34,  43,  47,
-        52,  56,  57,  64,  65,  69,  76,  78,  80,  87,  88,  92,  97,
-       100, 102, 105, 110, 113, 114, 121, 126, 130, 138, 139, 142, 146,
-       147, 148, 151, 152, 163, 164, 167, 170, 172, 173, 174, 175, 181,
-       183, 189, 197, 202, 205, 211, 215, 218, 219, 225, 227, 229, 231,
-       247, 257, 264, 266, 272, 277, 278, 280, 282, 296, 301, 303, 310,
-       314, 317, 325, 334, 335, 336, 338, 340, 343, 345, 351])], [array([  1,   2,   3,   4,   6,   7,   8,   9,  11,  12,  13,  14,  15,
-        16,  17,  18,  20,  22,  23,  24,  25,  26,  27,  28,  29,  30,
-        31,  32,  33,  34,  39,  40,  41,  42,  43,  44,  45,  47,  48,
-        51,  52,  53,  54,  56,  57,  62,  64,  65,  66,  67,  69,  71,
-        72,  73,  74,  76,  77,  78,  79,  80,  82,  84,  85,  87,  88,
-        89,  90,  91,  92,  93,  94,  95,  96,  97,  99, 100, 101, 102,
-       103, 105, 107, 109, 110, 112, 113, 114, 115, 116, 117, 118, 120,
-       121, 122, 123, 124, 125, 126, 128, 130, 133, 134, 135, 136, 137,
-       138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150,
-       151, 152, 153, 155, 156, 158, 159, 161, 162, 163, 164, 165, 166,
-       167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179,
-       180, 181, 182, 183, 185, 189, 190, 192, 197, 198, 200, 201, 202,
-       203, 205, 206, 209, 211, 212, 213, 214, 215, 216, 218, 219, 220,
-       221, 224, 225, 226, 227, 228, 229, 231, 232, 233, 234, 235, 237,
-       239, 243, 244, 245, 246, 247, 248, 250, 252, 253, 255, 256, 257,
-       260, 262, 264, 265, 266, 268, 271, 272, 273, 274, 275, 277, 278,
-       279, 280, 281, 282, 283, 284, 286, 287, 288, 289, 290, 292, 294,
-       296, 297, 298, 299, 301, 302, 303, 304, 307, 310, 311, 312, 313,
-       314, 315, 316, 317, 318, 319, 320, 321, 323, 325, 326, 327, 328,
-       329, 330, 331, 334, 335, 336, 337, 338, 339, 340, 343, 344, 345,
-       346, 347, 348, 350, 351]), array([  0,   5,  10,  19,  21,  35,  36,  37,  38,  46,  49,  50,  55,
-        58,  59,  60,  61,  63,  68,  70,  75,  81,  83,  86,  98, 104,
-       106, 108, 111, 119, 127, 129, 131, 132, 154, 157, 160, 184, 186,
-       187, 188, 191, 193, 194, 195, 196, 199, 204, 207, 208, 210, 217,
-       222, 223, 230, 236, 238, 240, 241, 242, 249, 251, 254, 258, 259,
-       261, 263, 267, 269, 270, 276, 285, 291, 293, 295, 300, 305, 306,
-       308, 309, 322, 324, 332, 333, 341, 342, 349, 352])], [array([  0,   1,   3,   4,   5,   6,   8,  10,  11,  12,  13,  14,  15,
-        16,  17,  18,  19,  20,  21,  23,  24,  25,  26,  27,  29,  31,
-        33,  34,  35,  36,  37,  38,  40,  42,  43,  44,  45,  46,  47,
-        49,  50,  51,  52,  54,  55,  56,  57,  58,  59,  60,  61,  62,
-        63,  64,  65,  68,  69,  70,  71,  73,  74,  75,  76,  77,  78,
-        79,  80,  81,  83,  85,  86,  87,  88,  89,  92,  93,  94,  97,
-        98, 100, 102, 104, 105, 106, 108, 110, 111, 112, 113, 114, 118,
-       119, 121, 122, 123, 125, 126, 127, 128, 129, 130, 131, 132, 133,
-       134, 135, 138, 139, 140, 141, 142, 143, 145, 146, 147, 148, 150,
-       151, 152, 154, 156, 157, 158, 160, 163, 164, 165, 167, 170, 172,
-       173, 174, 175, 177, 178, 179, 181, 182, 183, 184, 185, 186, 187,
-       188, 189, 191, 193, 194, 195, 196, 197, 199, 200, 201, 202, 203,
-       204, 205, 207, 208, 210, 211, 215, 216, 217, 218, 219, 220, 221,
-       222, 223, 225, 227, 229, 230, 231, 232, 234, 235, 236, 237, 238,
-       239, 240, 241, 242, 243, 246, 247, 248, 249, 250, 251, 254, 256,
-       257, 258, 259, 261, 263, 264, 265, 266, 267, 268, 269, 270, 271,
-       272, 276, 277, 278, 280, 281, 282, 283, 284, 285, 286, 289, 290,
-       291, 292, 293, 295, 296, 300, 301, 303, 305, 306, 307, 308, 309,
-       310, 313, 314, 317, 318, 320, 321, 322, 324, 325, 327, 329, 331,
-       332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 343, 345,
-       347, 349, 350, 351, 352]), array([  2,   7,   9,  22,  28,  30,  32,  39,  41,  48,  53,  66,  67,
-        72,  82,  84,  90,  91,  95,  96,  99, 101, 103, 107, 109, 115,
-       116, 117, 120, 124, 136, 137, 144, 149, 153, 155, 159, 161, 162,
-       166, 168, 169, 171, 176, 180, 190, 192, 198, 206, 209, 212, 213,
-       214, 224, 226, 228, 233, 244, 245, 252, 253, 255, 260, 262, 273,
-       274, 275, 279, 287, 288, 294, 297, 298, 299, 302, 304, 311, 312,
-       315, 316, 319, 323, 326, 328, 330, 344, 346, 348])], [array([  0,   1,   2,   5,   6,   7,   9,  10,  12,  17,  19,  20,  21,
-        22,  24,  25,  26,  27,  28,  29,  30,  32,  34,  35,  36,  37,
-        38,  39,  41,  43,  46,  47,  48,  49,  50,  52,  53,  55,  56,
-        57,  58,  59,  60,  61,  63,  64,  65,  66,  67,  68,  69,  70,
-        72,  75,  76,  78,  80,  81,  82,  83,  84,  86,  87,  88,  90,
-        91,  92,  95,  96,  97,  98,  99, 100, 101, 102, 103, 104, 105,
-       106, 107, 108, 109, 110, 111, 113, 114, 115, 116, 117, 119, 120,
-       121, 124, 126, 127, 129, 130, 131, 132, 136, 137, 138, 139, 142,
-       144, 146, 147, 148, 149, 151, 152, 153, 154, 155, 157, 159, 160,
-       161, 162, 163, 164, 166, 167, 168, 169, 170, 171, 172, 173, 174,
-       175, 176, 180, 181, 183, 184, 186, 187, 188, 189, 190, 191, 192,
-       193, 194, 195, 196, 197, 198, 199, 202, 204, 205, 206, 207, 208,
-       209, 210, 211, 212, 213, 214, 215, 217, 218, 219, 222, 223, 224,
-       225, 226, 227, 228, 229, 230, 231, 233, 236, 238, 240, 241, 242,
-       244, 245, 247, 249, 251, 252, 253, 254, 255, 257, 258, 259, 260,
-       261, 262, 263, 264, 266, 267, 269, 270, 272, 273, 274, 275, 276,
-       277, 278, 279, 280, 282, 285, 287, 288, 291, 293, 294, 295, 296,
-       297, 298, 299, 300, 301, 302, 303, 304, 305, 306, 308, 309, 310,
-       311, 312, 314, 315, 316, 317, 319, 322, 323, 324, 325, 326, 328,
-       330, 332, 333, 334, 335, 336, 338, 340, 341, 342, 343, 344, 345,
-       346, 348, 349, 351, 352]), array([  3,   4,   8,  11,  13,  14,  15,  16,  18,  23,  31,  33,  40,
-        42,  44,  45,  51,  54,  62,  71,  73,  74,  77,  79,  85,  89,
-        93,  94, 112, 118, 122, 123, 125, 128, 133, 134, 135, 140, 141,
-       143, 145, 150, 156, 158, 165, 177, 178, 179, 182, 185, 200, 201,
-       203, 216, 220, 221, 232, 234, 235, 237, 239, 243, 246, 248, 250,
-       256, 265, 268, 271, 281, 283, 284, 286, 289, 290, 292, 307, 313,
-       318, 320, 321, 327, 329, 331, 337, 339, 347, 350])]]
+TRAIN 0 :
+ [  0   2   3   4   5   7   8   9  10  11  13  14  15  16  18  19  21  22
+  23  28  30  31  32  33  35  36  37  38  39  40  41  42  44  45  46  48
+  49  50  51  53  54  55  58  59  60  61  62  63  66  67  68  70  71  72
+  73  74  75  77  79  81  82  83  84  85  86  89  90  91  93  94  95  96
+  98  99 101 103 104 106 107 108 109 111 112 115 116 117 118 119 120 122
+ 123 124 125 127 128 129 131 132 133 134 135 136 137 140 141 143 144 145
+ 149 150 153 154 155 156 157 158 159 160 161 162 165 166 168 169 171 176
+ 177 178 179 180 182 184 185 186 187 188 190 191 192 193 194 195 196 198
+ 199 200 201 203 204 206 207 208 209 210 212 213 214 216 217 220 221 222
+ 223 224 226 228 230 232 233 234 235 236 237 238 239 240 241 242 243 244
+ 245 246 248 249 250 251 252 253 254 255 256 258 259 260 261 262 263 265
+ 267 268 269 270 271 273 274 275 276 279 281 283 284 285 286 287 288 289
+ 290 291 292 293 294 295 297 298 299 300 302 304 305 306 307 308 309 311
+ 312 313 315 316 318 319 320 321 322 323 324 326 327 328 329 330 331 332
+ 333 337 339 341 342 344 346 347 348 349 350 352] 
+TEST 0  :
+ [  1   6  12  17  20  24  25  26  27  29  34  43  47  52  56  57  64  65
+  69  76  78  80  87  88  92  97 100 102 105 110 113 114 121 126 130 138
+ 139 142 146 147 148 151 152 163 164 167 170 172 173 174 175 181 183 189
+ 197 202 205 211 215 218 219 225 227 229 231 247 257 264 266 272 277 278
+ 280 282 296 301 303 310 314 317 325 334 335 336 338 340 343 345 351]
+
+
+TRAIN 1 :
+ [  1   2   3   4   6   7   8   9  11  12  13  14  15  16  17  18  20  22
+  23  24  25  26  27  28  29  30  31  32  33  34  39  40  41  42  43  44
+  45  47  48  51  52  53  54  56  57  62  64  65  66  67  69  71  72  73
+  74  76  77  78  79  80  82  84  85  87  88  89  90  91  92  93  94  95
+  96  97  99 100 101 102 103 105 107 109 110 112 113 114 115 116 117 118
+ 120 121 122 123 124 125 126 128 130 133 134 135 136 137 138 139 140 141
+ 142 143 144 145 146 147 148 149 150 151 152 153 155 156 158 159 161 162
+ 163 164 165 166 167 168 169 170 171 172 173 174 175 176 177 178 179 180
+ 181 182 183 185 189 190 192 197 198 200 201 202 203 205 206 209 211 212
+ 213 214 215 216 218 219 220 221 224 225 226 227 228 229 231 232 233 234
+ 235 237 239 243 244 245 246 247 248 250 252 253 255 256 257 260 262 264
+ 265 266 268 271 272 273 274 275 277 278 279 280 281 282 283 284 286 287
+ 288 289 290 292 294 296 297 298 299 301 302 303 304 307 310 311 312 313
+ 314 315 316 317 318 319 320 321 323 325 326 327 328 329 330 331 334 335
+ 336 337 338 339 340 343 344 345 346 347 348 350 351] 
+TEST 1  :
+ [  0   5  10  19  21  35  36  37  38  46  49  50  55  58  59  60  61  63
+  68  70  75  81  83  86  98 104 106 108 111 119 127 129 131 132 154 157
+ 160 184 186 187 188 191 193 194 195 196 199 204 207 208 210 217 222 223
+ 230 236 238 240 241 242 249 251 254 258 259 261 263 267 269 270 276 285
+ 291 293 295 300 305 306 308 309 322 324 332 333 341 342 349 352]
+
+
+TRAIN 2 :
+ [  0   1   3   4   5   6   8  10  11  12  13  14  15  16  17  18  19  20
+  21  23  24  25  26  27  29  31  33  34  35  36  37  38  40  42  43  44
+  45  46  47  49  50  51  52  54  55  56  57  58  59  60  61  62  63  64
+  65  68  69  70  71  73  74  75  76  77  78  79  80  81  83  85  86  87
+  88  89  92  93  94  97  98 100 102 104 105 106 108 110 111 112 113 114
+ 118 119 121 122 123 125 126 127 128 129 130 131 132 133 134 135 138 139
+ 140 141 142 143 145 146 147 148 150 151 152 154 156 157 158 160 163 164
+ 165 167 170 172 173 174 175 177 178 179 181 182 183 184 185 186 187 188
+ 189 191 193 194 195 196 197 199 200 201 202 203 204 205 207 208 210 211
+ 215 216 217 218 219 220 221 222 223 225 227 229 230 231 232 234 235 236
+ 237 238 239 240 241 242 243 246 247 248 249 250 251 254 256 257 258 259
+ 261 263 264 265 266 267 268 269 270 271 272 276 277 278 280 281 282 283
+ 284 285 286 289 290 291 292 293 295 296 300 301 303 305 306 307 308 309
+ 310 313 314 317 318 320 321 322 324 325 327 329 331 332 333 334 335 336
+ 337 338 339 340 341 342 343 345 347 349 350 351 352] 
+TEST 2  :
+ [  2   7   9  22  28  30  32  39  41  48  53  66  67  72  82  84  90  91
+  95  96  99 101 103 107 109 115 116 117 120 124 136 137 144 149 153 155
+ 159 161 162 166 168 169 171 176 180 190 192 198 206 209 212 213 214 224
+ 226 228 233 244 245 252 253 255 260 262 273 274 275 279 287 288 294 297
+ 298 299 302 304 311 312 315 316 319 323 326 328 330 344 346 348]
+
+
+TRAIN 3 :
+ [  0   1   2   5   6   7   9  10  12  17  19  20  21  22  24  25  26  27
+  28  29  30  32  34  35  36  37  38  39  41  43  46  47  48  49  50  52
+  53  55  56  57  58  59  60  61  63  64  65  66  67  68  69  70  72  75
+  76  78  80  81  82  83  84  86  87  88  90  91  92  95  96  97  98  99
+ 100 101 102 103 104 105 106 107 108 109 110 111 113 114 115 116 117 119
+ 120 121 124 126 127 129 130 131 132 136 137 138 139 142 144 146 147 148
+ 149 151 152 153 154 155 157 159 160 161 162 163 164 166 167 168 169 170
+ 171 172 173 174 175 176 180 181 183 184 186 187 188 189 190 191 192 193
+ 194 195 196 197 198 199 202 204 205 206 207 208 209 210 211 212 213 214
+ 215 217 218 219 222 223 224 225 226 227 228 229 230 231 233 236 238 240
+ 241 242 244 245 247 249 251 252 253 254 255 257 258 259 260 261 262 263
+ 264 266 267 269 270 272 273 274 275 276 277 278 279 280 282 285 287 288
+ 291 293 294 295 296 297 298 299 300 301 302 303 304 305 306 308 309 310
+ 311 312 314 315 316 317 319 322 323 324 325 326 328 330 332 333 334 335
+ 336 338 340 341 342 343 344 345 346 348 349 351 352] 
+TEST 3  :
+ [  3   4   8  11  13  14  15  16  18  23  31  33  40  42  44  45  51  54
+  62  71  73  74  77  79  85  89  93  94 112 118 122 123 125 128 133 134
+ 135 140 141 143 145 150 156 158 165 177 178 179 182 185 200 201 203 216
+ 220 221 232 234 235 237 239 243 246 248 250 256 265 268 271 281 283 284
+ 286 289 290 292 307 313 318 320 321 327 329 331 337 339 347 350]
 #+end_example
 
 * Question 12
@@ -906,17 +957,15 @@ def fit_ridge(X, Y, folds):
     R_pred_bar = np.mean(R_preds)
     R_pred_bars.append(R_pred_bar)
   return R_pred_bars
-#+END_SRC
 
-#+RESULTS:
-
-#+BEGIN_SRC python :session default :exports both :results output :tangle yes
 ridge_param_curve = fit_ridge(X_train, Y_train, folds)
 print(ridge_param_curve)
 #+END_SRC
 
 #+RESULTS:
 : [19725.057068212333, 3868.2429103202953, 3857.305752874005, 3847.401814139806, 3838.6896702631398, 3831.190810428525, 3824.84080763573, 3819.547978446685, 3815.215766700655, 3811.7513298983868, 3809.0687241961705, 3807.0898265696833, 3805.744275948606, 3804.968997146406, 3804.707567995887, 3804.9095525751727, 3805.529857829777, 3806.528138582898, 3807.8682597650263, 3809.517816662376]
+
+Graphons maintenant notre courbe de paramètre Ridge:
 
 #+BEGIN_SRC python :session default :exports both :results file :tangle yes
 path11 = "./img/q11.png"
@@ -927,6 +976,8 @@ ridge_param_space = list(np.linspace(0, 100, 20))
 plt.figure(0)
 plt.scatter(ridge_param_space[1:], y[1:])
 plt.title("Ridge parameter curve")
+plt.xlabel("Paramètre Ridge")
+plt.ylabel("Risque de prediciton")
 plt.savefig(path11)
 plt.close()
 path11
@@ -934,6 +985,8 @@ path11
 
 #+RESULTS:
 [[file:./img/q11.png]]
+
+Nous concluons donc que:
 
 #+BEGIN_SRC python :session default :exports both :results output :tangle yes
 print("Le parametre Ridge optimal est:", ridge_param_space[np.argmin(ridge_param_curve)])
@@ -943,9 +996,6 @@ print("Et son risque est:", min(ridge_param_curve))
 #+RESULTS:
 : Le parametre Ridge optimal est: 73.6842105263158
 : Et son risque est: 3804.707567995887
-
-** TODO Valeur du risque sur le test                                  :stats:
-   SCHEDULED: <2018-11-08 Thu>
 
 * Question 13
    
@@ -960,7 +1010,7 @@ print("Risque de prediction lasso: ", R_pred_lasso)
 #+END_SRC
 
 #+RESULTS:
-: R_pred lasso:  5389.933166498974
+: Risque de prediction lasso:  5389.933166498974
 
 * Question 14
   
@@ -990,4 +1040,4 @@ print("Le risque de prediciton de Least-square Lasso est ", R_pred_ols_lasso)
 
 * Question 15
 
-Cette dernière question est un question d’ouverture vers une approche non-linéaire. En utilisant les variables séléctionées par le LASSO (Q13) ou par la méthode forward (Q9), mettre au point une méthode de regression non-linéaire. On apprendra les différents paramètres par validation croisée et l’on donnera la valeur du risque de prédiction calculé sur l’échantillon test. Des performances moindres par rapport à OLS peuvent se produire. Commenter.
+Cette dernière question est un question d’ouverture vers une approche non-linéaire. En utilisant les variables sélectionnées par le LASSO (Q13) ou par la méthode forward (Q9), mettre au point une méthode de régression non-linéaire. On apprendra les différents paramètres par validation croisée et l’on donnera la valeur du risque de prédiction calculé sur l’échantillon test. Des performances moindres par rapport à OLS peuvent se produire. Commenter.
