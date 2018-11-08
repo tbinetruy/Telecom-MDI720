@@ -327,16 +327,11 @@ Ci-dessous, nous analysons que notre variable explicative n'est ni centrée, ni 
 
 #+BEGIN_SRC python :session default :exports both :tangle yes :results output
 print("La variable explicative à une moyenne de :", dfY.mean(axis=0))
-#+END_SRC
-
-#+RESULTS:
-: La variable explicative à une moyenne de : 152.13348416289594
-
-#+BEGIN_SRC python :session default :exports both :tangle yes :results output
 print("La variable explicative à une variance de :", dfY.var(axis=0))
 #+END_SRC
 
 #+RESULTS:
+: La variable explicative à une moyenne de : 152.13348416289594
 : La variable explicative à une variance de : 5943.331347923785
 
 Sélectionnons 4 colonnes au hasard à l'aide de ~random.randint~ et générons une "scatter matrix":
@@ -359,6 +354,7 @@ path2
 #+RESULTS:
 [[file:./img/q2.png]]
 
+Nous remarquons sur la scatter matrix que les variables sélectionnée pour la réaliser ne sont pas corrélées puisqu'un nuage symétrique de points indique une corrélation de 0 entre les deux axes.
 
 * Question 3
   
@@ -487,8 +483,8 @@ path5
 
 #+BEGIN_SRC python :session default :exports both :results output :tangle yes
 theta_hat_ols = LinearRegression(fit_intercept=True).fit(X_train, Y_train)
-print(theta_hat_ols.intercept_)
-print(X_train.shape)
+print("OLS intercept", theta_hat_ols.intercept_)
+print("X_train shape", X_train.shape)
 #+END_SRC
 
 #+RESULTS:
