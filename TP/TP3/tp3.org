@@ -15,7 +15,7 @@ Nous travaillons sur la base de données ~diabetes~ de python. La base initiale 
 
 * OLS Library
   
-#+BEGIN_SRC python :session default :exports both :results output
+#+BEGIN_SRC python :session default :exports both :results output :tangle yes
 def get_X(X_tild):
   X_tild = X_tild.tolist()
   X = [[1] +  X_tild[i] for i in range(0, len(X_tild))]
@@ -93,7 +93,7 @@ def get_students_quantile(deg, level):
   
 /Importer la base de données ~data_dm3.csv~ disponible depuis le lien https://bitbucket.org/portierf/shared_files/downloads/data_dm3.csv. La dernière colonne est la variable à expliquer. Les autres colonnes sont les variables explicatives. Préciser le nombre de variables explicatives et le nombre d’observations./
   
-#+BEGIN_SRC python :exports both :session default
+#+BEGIN_SRC python :exports both :session default :tangle yes
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -114,7 +114,7 @@ from sklearn.linear_model import Ridge, LassoCV
 
 #+RESULTS:
 
-#+BEGIN_SRC python :session default :exports both
+#+BEGIN_SRC python :session default :exports both :tangle yes
 def import_data():
     df = pd.read_csv('data_dm3.csv', delimiter=",", header=None)
     return df
@@ -134,14 +134,14 @@ df.head()
 : [5 rows x 211 columns]
 
 
-#+BEGIN_SRC python :session default :exports both
+#+BEGIN_SRC python :session default :exports both :tangle yes
 df.shape[1]
 #+END_SRC
 
 #+RESULTS:
 : 211
 
-#+BEGIN_SRC python :session default : exports both
+#+BEGIN_SRC python :session default : exports both :tangle yes
 num_df_cols = df.shape[1] - 1
 dfX = df.drop(num_df_cols, axis=1)
 dfX.head()
@@ -157,7 +157,7 @@ dfX.head()
 : 
 : [5 rows x 210 columns]
 
-#+BEGIN_SRC python :session default :exports both
+#+BEGIN_SRC python :session default :exports both :tangle yes
 dfY = df[num_df_cols]
 dfY.head()
 #+END_SRC
@@ -170,7 +170,7 @@ dfY.head()
 : 4    135.0
 : Name: 210, dtype: float64
 
-#+BEGIN_SRC python :session default :results output :exports both
+#+BEGIN_SRC python :session default :results output :exports both :tangle yes
 print("Nombre de variable explicatives:", dfX.shape[1])
 print("Numbre d'observations", dfX.shape[0])
 #+END_SRC
@@ -183,7 +183,7 @@ print("Numbre d'observations", dfX.shape[0])
   
 /Les variables explicatives sont-elles centrées ? Normalisées ? Qu’en est-il de la variable à expliquer ? Tracer un scatter plot de la base de données avec 4 covariables prises au hasard et la variable à expliquer (un scatterplot regroupe les graphes de chacune des variables en fonction de chacune des autres). Commenter les graphiques obtenus./
 
-#+BEGIN_SRC python :session default :exports both
+#+BEGIN_SRC python :session default :exports both :tangle yes
 dfX.mean(axis=0)
 #+END_SRC
 
@@ -253,7 +253,7 @@ dfX.mean(axis=0)
 Length: 210, dtype: float64
 #+end_example
 
-#+BEGIN_SRC python :session default :exports both
+#+BEGIN_SRC python :session default :exports both :tangle yes
 dfX.var(axis=0)
 #+END_SRC
 
@@ -323,14 +323,14 @@ dfX.var(axis=0)
 Length: 210, dtype: float64
 #+end_example
 
-#+BEGIN_SRC python :session default :exports both
+#+BEGIN_SRC python :session default :exports both :tangle yes
 dfY.mean(axis=0)
 #+END_SRC
 
 #+RESULTS:
 : 152.13348416289594
 
-#+BEGIN_SRC python :session default :exports both
+#+BEGIN_SRC python :session default :exports both :tangle yes
 dfY.var(axis=0)
 #+END_SRC
 
@@ -338,7 +338,7 @@ dfY.var(axis=0)
 : 5943.331347923785
 
 
-#+BEGIN_SRC python :session default :exports both :results file
+#+BEGIN_SRC python :session default :exports both :results file :tangle yes
 def rand():
     return random.randint(0, dfX.shape[1] - 1)
 
@@ -360,7 +360,7 @@ path2
   
 /Echantillon d’apprentissage et de test. Créer 2 échantillons : un pour apprendre le modèle $X_{\mbox{train}}$, un pour tester le modèle X test. On mettra 20% de la base dans l’échantillon ’test’. Donner les tailles de chacun des 2 échantillons. On notera que le nouvel échantillon de covariables $X_{\mbox{train}}$ n’est pas normalizé. Dans la suite, on fera donc bien attention à inclure l’intercept dans nos régression./
 
-#+BEGIN_SRC python :session default :exports both :results output
+#+BEGIN_SRC python :session default :exports both :results output :tangle yes
 X = np.matrix(dfX)
 Y = np.matrix(dfY).T
 
@@ -397,7 +397,7 @@ Mais nous avons vu dans la question précedente que l'espérence de $X$ est null
 
 $$Cor(X) = X^TX$$
 
-#+BEGIN_SRC python :session default :exports both :results file
+#+BEGIN_SRC python :session default :exports both :results file :tangle yes
 u, s, vh = np.linalg.svd(X_train)
 
 path3 = "./img/q3.png"
@@ -417,7 +417,7 @@ path3
 /Suivant les observations de la question (Q4), appliquer la méthode de "PCA before OLS" qui consiste à appliquer OLS avec $Y$ et $X_{\mbox{train}}V_{1:60}$, où $V_{1:60}$ contient les vecteurs propres (associé aux 60 plus grandes valeurs propres) de la matrice de covariance. Faire une régression linéaire (avec intercept), puis tracer les valeurs des coefficients (hors intercept). Sur un autre graphique, faire de même avec la méthode des moindres carrés classique./
 
 
-#+BEGIN_SRC python :session default :exports both :results output
+#+BEGIN_SRC python :session default :exports both :results output :tangle yes
 u, s, vh = np.linalg.svd(X_train)
 Xpca = X_train@vh.T[:,0:60]
 print(Xpca.shape)
@@ -442,7 +442,7 @@ Traceback (most recent call last):
 ValueError: Found input variables with inconsistent numbers of samples: [353, 354]
 #+end_example
 
-#+BEGIN_SRC python :session default :exports both :results output
+#+BEGIN_SRC python :session default :exports both :results output :tangle yes
 theta_hat_ols = LinearRegression(fit_intercept=True).fit(X_train, Y_train)
 print(theta_hat_ols.intercept_)
 print(X_train.shape)
@@ -453,7 +453,7 @@ print(X_train.shape)
 : (354, 210)
 
 
-#+BEGIN_SRC python :session default :exports both :results file
+#+BEGIN_SRC python :session default :exports both :results file :tangle yes
 plt.figure(0)
 path5 = "./q5b.png"
 plt.scatter(range(theta_hat_pca_before_ols.coef_.shape[1]), theta_hat_pca_before_ols.coef_)
@@ -466,7 +466,7 @@ path5
 [[file:./q5b.png]]
 
 
-#+BEGIN_SRC python :session default :exports both :results file
+#+BEGIN_SRC python :session default :exports both :results file :tangle yes
 plt.figure(0)
 path4 = "./q5a.png"
 plt.scatter(range(theta_hat_ols.coef_.shape[1]), theta_hat_ols.coef_)
@@ -482,7 +482,7 @@ path4
   
 /Donner les valeurs des intercepts pour les 2 régressions précédentes. Donner la valeur moyenne de la variable $Y$ (sur le train set). Les intercepts des 2 questions sont-ils égaux ? Commenter. Uniquement pour cette question, centrer et réduire les variables après ACP (de petite dimension). Faire une régression avec ces variables et vérifier que l’intercept est bien égal à la moyenne de $Y$ sur le train./
 
-#+BEGIN_SRC python :session default :exports both :results output
+#+BEGIN_SRC python :session default :exports both :results output :tangle yes
 print("Intercept OLS:", theta_hat_ols.intercept_)
 print("Intercept PCA before OLS:", theta_hat_pca_before_ols.intercept_)
 #+END_SRC
@@ -491,7 +491,7 @@ print("Intercept PCA before OLS:", theta_hat_pca_before_ols.intercept_)
 : Intercept OLS: [153.48863436]
 : Intercept PCA before OLS: [152.77106978]
 
-#+BEGIN_SRC python :session default :exports both :results output
+#+BEGIN_SRC python :session default :exports both :results output :tangle yes
   Xpca_c = Xpca-Xpca.mean(axis=0)
   Xpca_n = Xpca_c/np.sqrt(Xpca.var(axis=0))
 
@@ -508,14 +508,14 @@ print("Intercept PCA before OLS:", theta_hat_pca_before_ols.intercept_)
 
 Pour les 2 méthodes (OLS et PCA before OLS) : Tracer les résidus de la prédiction sur l’échantillon test. Tracer leur densité (on pourra par exemple utiliser un histogramme). Calculer le coefficient de détermination sur l’échantillon test. Calculer le risque de prédiction sur l’échantillon test.
 
-#+BEGIN_SRC python :session default :exports both :results output
+#+BEGIN_SRC python :session default :exports both :results output :tangle yes
 Y_pred_pca = theta_hat_pca_before_ols.predict(X_test@vh.T[:,:60])
 res_pca = Y_test - Y_pred_pca
 #+END_SRC
 
 #+RESULTS:
 
-#+BEGIN_SRC python :session default :exports both :results file
+#+BEGIN_SRC python :session default :exports both :results file :tangle yes
 path7a = "./img/q7a.png"
 plt.figure(0)
 plt.scatter(range(len(res_pca)), [r[0] for r in res_pca])
@@ -528,14 +528,14 @@ path7a
 #+RESULTS:
 [[file:./img/q7a.png]]
 
-#+BEGIN_SRC python :session default :exports both :results output
+#+BEGIN_SRC python :session default :exports both :results output :tangle yes
 Y_pred_ols = theta_hat_ols.predict(X_test)
 res_ols = Y_test - Y_pred_ols
 #+END_SRC
 
 #+RESULTS:
 
-#+BEGIN_SRC python :session default :exports both :results file
+#+BEGIN_SRC python :session default :exports both :results file :tangle yes
 path7b = "./img/q7b.png"
 plt.figure(0)
 plt.scatter(range(len(res_ols)), [r[0] for r in res_ols])
@@ -548,7 +548,7 @@ path7b
 #+RESULTS:
 [[file:./img/q7b.png]]
 
-#+BEGIN_SRC python :session default :exports both :results file
+#+BEGIN_SRC python :session default :exports both :results file :tangle yes
 f, axes = plt.subplots(1, 2)
 
 plt.figure(0)
@@ -567,7 +567,7 @@ path7c
 #+RESULTS:
 [[file:./img/q7c.png]]
 
-#+BEGIN_SRC python :session default :exports both :results output
+#+BEGIN_SRC python :session default :exports both :results output :tangle yes
 print("R2 for PCA before OLS", theta_hat_pca_before_ols.score(X_test@vh.T[:,:60], Y_test))
 print("R2 for OLS", theta_hat_ols.score(X_test, Y_test))
 
@@ -592,7 +592,7 @@ print("R_pred OLS:", R_pred_ols)
 
 Coder la méthode de forward variable sélection. On pourra utiliser la statistique du test de nullité du coefficient (comme vu en cours). Pour l’instant, on ne met pas de critère d’arret sur la méthode. C’est à dire que l’on ajoute une variable à chaque étape jusqu’à retrouver la totalité des variables. Afficher l’ordre de séléction des variables.
 
-#+BEGIN_SRC python :session default :exports both :results output
+#+BEGIN_SRC python :session default :exports both :results output :tangle yes
   def get_p_value(t_stat, deg):
       # compute the p-value if t_stat follows a Student of degree deg
       p_val = (1 - stat.t.cdf(abs(t_stat), deg)) * 2
@@ -642,7 +642,7 @@ Coder la méthode de forward variable sélection. On pourra utiliser la statisti
 Montrons toutes les variables dans leurs ordre de selection:
 
 
-#+BEGIN_SRC python :session default :exports both :results output
+#+BEGIN_SRC python :session default :exports both :results output :tangle yes
 result = fast_forward_selection(X_train, Y_train)
 print("Ordre de selection des variables:", result[0])
 print("pvalues", result[1])
@@ -660,7 +660,7 @@ print("pvalues", result[1])
 1. /les 3 graphes des statistiques obtenues lors de la sélection de la 1er, 2eme et 3eme variables (en abscisse : l’index des variables, en ordonné : la valeur des stats) ,/
 2. /le graphe des 50 premières p-valeurs (dont chacune est associée à la variable sélectionnée). Sur ce même graphe, on tracera la ligne horizontale d’ordonnée 0.1. Enfin on donnera la liste des variables sélectionnées./
 
-#+BEGIN_SRC python :session default :exports both :results output
+#+BEGIN_SRC python :session default :exports both :results output :tangle yes
 result_trimmed = fast_forward_selection(X_train, Y_train, 0.1)
 print("Variables selectionnees:", result_trimmed[0])
 print("pvalues", result_trimmed[1])
@@ -670,7 +670,7 @@ print("pvalues", result_trimmed[1])
 : Variables selectionnees: [58, 123, 167, 23, 34, 174, 99]
 : pvalues [0.0, 4.594366220800339e-09, 1.9448257604359753e-07, 2.230973249894852e-05, 6.161408358718035e-05, 0.00014767475703725275, 0.00027147789041803705, 0.028673792423168587]
 
-#+BEGIN_SRC python :session default :exports both :results file
+#+BEGIN_SRC python :session default :exports both :results file :tangle yes
 y = result_trimmed[2][0]
 x = list(range(len(y)))
 
@@ -690,7 +690,7 @@ path9a
 
 
 
-#+BEGIN_SRC python :session default :exports both :results file
+#+BEGIN_SRC python :session default :exports both :results file :tangle yes
 y = result_trimmed[2][1]
 x = list(range(len(y)))
 
@@ -707,7 +707,7 @@ path9b
 #+RESULTS:
 [[file:./img/q9b.png]]
 
-#+BEGIN_SRC python :session default :exports both :results file
+#+BEGIN_SRC python :session default :exports both :results file :tangle yes
 y = result_trimmed[2][2]
 x = list(range(len(y)))
 
@@ -724,7 +724,7 @@ path9c
 #+RESULTS:
 [[file:./img/q9c.png]]
 
-#+BEGIN_SRC python :session default :exports both :results file
+#+BEGIN_SRC python :session default :exports both :results file :tangle yes
 y = result[1][:50]
 y_limit = [0.1 for i in y]
 x = range(len(y))
@@ -745,7 +745,7 @@ path9d
 
 /Appliquer OLS sur les variables sélectionnées. Donner le risque de prédiction obtenu l’échantillon test et le comparer à ceux de OLS et PCA before OLS./
 
-#+BEGIN_SRC python :session default :exports both :results output
+#+BEGIN_SRC python :session default :exports both :results output :tangle yes
 print("Fast forward variable selection (number of selected columns)", result_trimmed[0])
 X_train_ffs = X_train[:,result_trimmed[0]]
 model_ffs_ols = LinearRegression(fit_intercept=True).fit(X_train_ffs, Y_train)
@@ -763,7 +763,7 @@ print("R_pred for fast forward selection OLS:", get_R_pred(Y_test, Y_pred_ffs))
   
 /Afin de préparer la validation croisée, séparer l’échantillon train en 4 parties (appelées ”folds”) de façon aléatoire. On affichera les numéros d’échantillon sélectionnés dans chaque fold./
 
-#+BEGIN_SRC python :session default :exports both :results output
+#+BEGIN_SRC python :session default :exports both :results output :tangle yes
 kf = KFold(n_splits=4, random_state=10, shuffle=True)
 _folds = kf.split(X_train)
 folds = []
@@ -890,7 +890,7 @@ print(folds)
 /Appliquer la méthode de la régression ridge. Pour le choix du paramètre de régularisation, on fera une validation croisée sur les ”folds” définies lors de la question précédente. A tour de rôle chacune des ”folds” servira pour calculer le risque de prédiction alors que les autres seront utilisées pour estimer le modèle. On moyennera ensuite les 4 risques de prédictions. On donnera la courbe du risque de validation croisée en fonction du paramètre de régularisation (on veillera à bien choisir l’espace de définition pour le graphe). Donner le paramètre de régularisation optimal et la valeur du risque sur le test./
 
 
-#+BEGIN_SRC python :session default :exports both :results output
+#+BEGIN_SRC python :session default :exports both :results output :tangle yes
 ridge_param_space = np.linspace(0, 100, 20)
 def fit_ridge(X, Y, folds):
   R_pred_bars = []
@@ -910,7 +910,7 @@ def fit_ridge(X, Y, folds):
 
 #+RESULTS:
 
-#+BEGIN_SRC python :session default :exports both :results output
+#+BEGIN_SRC python :session default :exports both :results output :tangle yes
 ridge_param_curve = fit_ridge(X_train, Y_train, folds)
 print(ridge_param_curve)
 #+END_SRC
@@ -918,7 +918,7 @@ print(ridge_param_curve)
 #+RESULTS:
 : [19725.057068212333, 3868.2429103202953, 3857.305752874005, 3847.401814139806, 3838.6896702631398, 3831.190810428525, 3824.84080763573, 3819.547978446685, 3815.215766700655, 3811.7513298983868, 3809.0687241961705, 3807.0898265696833, 3805.744275948606, 3804.968997146406, 3804.707567995887, 3804.9095525751727, 3805.529857829777, 3806.528138582898, 3807.8682597650263, 3809.517816662376]
 
-#+BEGIN_SRC python :session default :exports both :results file
+#+BEGIN_SRC python :session default :exports both :results file :tangle yes
 path11 = "./img/q11.png"
 y = ridge_param_curve[:]
 print(ridge_param_space)
@@ -935,7 +935,7 @@ path11
 #+RESULTS:
 [[file:./img/q11.png]]
 
-#+BEGIN_SRC python :session default :exports both :results output
+#+BEGIN_SRC python :session default :exports both :results output :tangle yes
 print("Le parametre Ridge optimal est:", ridge_param_space[np.argmin(ridge_param_curve)])
 print("Et son risque est:", min(ridge_param_curve))
 #+END_SRC
@@ -951,7 +951,7 @@ print("Et son risque est:", min(ridge_param_curve))
    
 /A l’aide de la fonction lassoCV de sklearn, choisir le paramètre de régularisation du LASSO. Donner le risque de prédiction associé./
 
-#+BEGIN_SRC python :session default :exports both :results output
+#+BEGIN_SRC python :session default :exports both :results output :tangle yes
 lasso_model = LassoCV(cv=5)
 lasso_model.fit(X_train, [y[0] for y in Y_train.tolist()])
 Y_pred_lasso = lasso_model.predict(X_test)
@@ -966,7 +966,7 @@ print("Risque de prediction lasso: ", R_pred_lasso)
   
 /Donner les variables selectionées par le lasso. Combien y-en a t-il ? Appliquer la méthode OLS aux variables sélectionnées. Cette méthode est appelé Least-square LASSO./
 
-#+BEGIN_SRC python :session default :exports both :results output
+#+BEGIN_SRC python :session default :exports both :results output :tangle yes
 coefs = lasso_model.coef_
 lasso_selected_cols = [i for i, c in enumerate(coefs) if c]
 print("Le parametre Lasso optimal trouve est", lasso_model.alpha_)
@@ -977,7 +977,7 @@ print("Le lasso a selectionne les colonnes suivantes", lasso_selected_cols)
 : Le parametre Lasso optimal trouve est 6.631995961001097
 : Le lasso a selectionne les colonnes suivantes [13, 58, 123, 129, 167, 174]
 
-#+BEGIN_SRC python :session default :exports both :results output
+#+BEGIN_SRC python :session default :exports both :results output :tangle yes
 model_ols_lasso = LinearRegression()
 model_ols_lasso.fit(X_train[:,lasso_selected_cols], Y_train)
 Y_pred_ols_lasso = model_ols_lasso.predict(X_test[:,lasso_selected_cols])
